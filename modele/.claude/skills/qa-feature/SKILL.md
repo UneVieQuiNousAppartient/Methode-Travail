@@ -30,14 +30,15 @@ Un critère vague (« rapide », « clair ») est signalé comme tel, pas coché
 
 ## 2. Contrôles de base
 
-```bash
-npm run typecheck
-npm run lint
-npx vitest run <fichiers de test de la phase>
-npx playwright test e2e/<fichier>.spec.ts
-```
-Lancer **seulement** les tests liés à la phase ; la suite complète est le
-travail de la CI et de `livrer`.
+Commandes de la **Fiche projet** (`CLAUDE.md`) :
+- **Tests ciblés** sur les fichiers de test de la phase (unitaires, puis e2e) ;
+- les étapes rapides de **Vérification** (typecheck, lint) si la fiche les détaille.
+
+*Exemple (VieSolution)* : `npx vitest run <fichier>.test.ts`,
+`npx playwright test e2e/<fichier>.spec.ts`.
+
+Lancer **seulement** les tests liés à la phase ; la commande Vérification
+complète est le travail de la CI et de `livrer`.
 
 ## 3. Cocher un à un
 
@@ -55,8 +56,8 @@ passer ; si un test échoue, rapporte la cause. Rapporte ton usage de jetons. »
 ## 5. Relire les tests touchés — obligatoire
 
 ```bash
-git diff --stat -- e2e/ '**/*.test.ts' '**/*.spec.ts'
-git diff -- e2e/ '**/*.test.ts' '**/*.spec.ts'
+git diff --stat -- '*test*' '*spec*' e2e/ tests/
+git diff -- '*test*' '*spec*' e2e/ tests/
 ```
 Refuser tout affaiblissement : `skip`, `only`, `todo`, `expect(true)`,
 assertion supprimée ou remplacée par une simple existence d'élément,

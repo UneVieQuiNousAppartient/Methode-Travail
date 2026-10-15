@@ -14,13 +14,20 @@ auto-vérification) a tourné sur le diff.
 0. **Reformuler** la demande (objectif, périmètre vérifié dans le code, contraintes, ambiguïtés, critère de
    « terminé ») — en tête du plan.
 1. **Décomposer** en sous-tâches, chacune avec son agent (`.claude/agents/`) et son **modèle**
-   (`budget-jetons.md`). Ne jamais recoder ce qu'un agent ou une skill fait déjà.
+   (`budget-jetons.md`). Ne jamais recoder ce qu'un agent ou une skill fait déjà — ni dans le projet, ni
+   dans un dépôt public reconnu. Une skill **copiée d'un autre dépôt** porte un `SOURCE.md` à côté de son
+   `SKILL.md` (dépôt, commit, licence, date de copie) et **ne se modifie pas sur place** : on la remplace
+   par une copie plus récente, après relecture du diff (`node scripts/skills-check.mjs` signale celles qui
+   ont changé en amont). On n'installe pas de bibliothèque de skills en vrac : chacune est lue avant
+   d'entrer, et justifiée.
 2. **Dépendances** : quoi doit finir avant quoi ; ce qui peut tourner en parallèle (au plus 2 agents).
 3. **Présenter le plan** (reformulation + graphe + **coût estimé**) et **attendre l'accord**. Cette étape
    n'appartient qu'à l'agent principal : un sous-agent exécute un plan approuvé, ne redemande rien et ne
    dispatche personne — le prompt de délégation le dit explicitement.
 4. **Exécuter** selon le graphe.
-5. **Terminer par `qa-agent`**.
+5. **Terminer par `qa-agent`** — et, pour un lot qui touche l'authentification, les accès, le schéma ou
+   une intégration externe, par `securite` avant la mise en ligne ; pour un lot écrit par un autre agent
+   ou une autre personne, par `revue-integration` avant la fusion.
 
 Pour un nouveau projet ou une grosse fonctionnalité, la skill `nouveau-projet` (BRIEF → PRD + APP-FLOW →
 SCHEMA → TRD → UI-GUIDE → IMPLEMENTATION-PLAN) précède ce processus.
@@ -52,4 +59,21 @@ reproduire le défaut, ajouter un rappel dans le fichier de cet agent.
 - **Conception** (documents seulement, skill `nouveau-projet`) : `product-manager`, `data-architect`,
   `solution-architect`, `ux-designer`, `tech-lead`.
 - **Développement** : `orchestrateur` (découpage), `data-agent`, `ux-agent`, `ai-agent`, `qa-agent` (toujours en dernier).
+- **Revue** (lecture seule, Opus, verdict binaire) : `securite` (avant une mise en production sensible),
+  `revue-integration` (avant de fusionner un lot qu'on n'a pas écrit).
 - **Propres au projet** : à lister ici (agents métier, automatisations).
+
+## Garde-fous mécaniques (la règle est appliquée, pas seulement écrite)
+
+Un rappel dans un agent s'oublie ; un script ne s'oublie pas. Ce que le modèle installe :
+
+| Garde-fou | Où | Ce qu'il fait |
+|---|---|---|
+| Fichiers protégés | `scripts/hook-protect-files.mjs` (PreToolUse) | refuse l'écriture de `.env*`, des verrous, des artefacts |
+| Correcteur de lint | `scripts/hook-lint-fix.mjs` (PostToolUse) | `eslint --fix` sur le fichier écrit, erreurs restantes remontées ; jamais bloquant |
+| Règles métier | `scripts/check-rules.mjs` (pre-commit + Vérification) | bloque un commit qui réintroduit un incident connu (`regles-metier.md`) |
+| Suivi | `scripts/check-suivi.js --hook` (pre-commit) | avertit si du code part sans entrée au suivi ; jamais bloquant |
+| Méthode | `scripts/verifier-methode.mjs` | Fiche projet remplie, hooks, frontmatter, scripts valides |
+
+Hook Git actif seulement après `git config core.hooksPath .githooks` (une fois par clone). Un blocage n'est
+jamais une erreur à contourner : c'est le signal de corriger, ou de demander.

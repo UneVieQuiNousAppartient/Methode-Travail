@@ -24,9 +24,10 @@ n'ont pas l'outil). Tu n'écris **aucun composant ni code**.
   configuration Tailwind / CSS globale pour les couleurs et polices.
 - Inspiration permise : catalogue 21st.dev, modèles Framer (consultation) —
   jamais de copie de marque.
-- Fichiers à lire pour les jetons : `src/app/globals.css` (variables CSS),
-  configuration Tailwind si présente, `src/components/ui/*.tsx` (variantes
-  et tailles réelles).
+- Fichiers à lire pour les jetons : feuille de style globale (variables CSS),
+  configuration Tailwind si présente, composants d'interface (variantes et
+  tailles réelles). *Exemple (Next.js)* : `src/app/globals.css`,
+  `src/components/ui/*.tsx`.
 - Jamais `SUIVI-TACHES.md` en entier.
 
 ## Sorties — uniquement dans `docs/projets/<slug>/`

@@ -36,7 +36,8 @@ demandes pas d'accord, tu ne dispatches personne. Ce qui manque va dans
      Opus développement, Sonnet rédaction/traduction de contenu, Haiku
      automatisations quotidiennes et contrôles mécaniques) ;
    - dépendances (graphe texte) et ce qui peut tourner en parallèle (2 max) ;
-   - **tests** : unitaires (vitest), e2e (Playwright) ciblés ;
+   - **tests** : unitaires et e2e ciblés, avec les outils de la Fiche projet
+     (*exemple* : vitest, Playwright) ;
    - **critères d'acceptation** numérotés, repris du PRD, vérifiables un à
      un par la skill `qa-feature` ;
    - **coût estimé** de la phase.
