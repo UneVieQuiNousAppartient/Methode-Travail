@@ -9,6 +9,22 @@
 **Verrou avant tout `git commit`** : si le déclencheur est atteint, un vrai `qa-agent` (appel `Agent`, pas une
 auto-vérification) a tourné sur le diff.
 
+## Accord avant de coder, ou annonce puis exécution
+
+Le plan est toujours dit ; ce qui change, c'est s'il faut **attendre** :
+- **Plan, puis accord explicite avant la première ligne de code** — même pour une seule ligne, même sous le
+  déclencheur ci-dessus — quand le changement touche l'**argent** (prix, taxes, rabais, remboursements), le
+  **paiement**, l'**authentification** ou les accès, le **schéma de la base** (migration, RLS) ou des
+  **données de clients**.
+- **Processus complet** (déclencheur atteint, hors domaines ci-dessus) : plan et accord, étape 3.
+- **Le reste** (exécution directe : une coquille, un texte, une couleur, un seul fichier sans enjeu) :
+  **annoncer** en une ou deux lignes ce qui va changer, puis le faire sans attendre.
+- **Avant tout plan** : reformuler la demande **en une phrase**. Si elle est ambiguë, **poser la question** en
+  français simple, sans jargon, plutôt que deviner — la personne qui valide n'est pas forcément technique
+  (« Le rabais s'applique-t-il avant ou après les frais de livraison ? », pas « quel ordre d'opérations dans
+  la fonction de calcul ? »). Lire le code concerné avant de proposer : une fonction existante fait peut-être
+  déjà presque la chose.
+
 ## Processus
 
 0. **Reformuler** la demande (objectif, périmètre vérifié dans le code, contraintes, ambiguïtés, critère de
@@ -24,7 +40,9 @@ auto-vérification) a tourné sur le diff.
 3. **Présenter le plan** (reformulation + graphe + **coût estimé**) et **attendre l'accord**. Cette étape
    n'appartient qu'à l'agent principal : un sous-agent exécute un plan approuvé, ne redemande rien et ne
    dispatche personne — le prompt de délégation le dit explicitement.
-4. **Exécuter** selon le graphe.
+4. **Exécuter** selon le graphe. Toute règle de calcul critique (argent, quantités, droits d'accès, dates de
+   facturation) suit la skill **`tester-dabord`** : fonction pure + test écrit avant ou avec le code, test de
+   parité si la règle existe des deux côtés (client et serveur).
 5. **Terminer par `qa-agent`** — et, pour un lot qui touche l'authentification, les accès, le schéma ou
    une intégration externe, par `securite` avant la mise en ligne ; pour un lot écrit par un autre agent
    ou une autre personne, par `revue-integration` avant la fusion.
@@ -72,8 +90,9 @@ Un rappel dans un agent s'oublie ; un script ne s'oublie pas. Ce que le modèle 
 | Fichiers protégés | `scripts/hook-protect-files.mjs` (PreToolUse) | refuse l'écriture de `.env*`, des verrous, des artefacts |
 | Correcteur de lint | `scripts/hook-lint-fix.mjs` (PostToolUse) | `eslint --fix` sur le fichier écrit, erreurs restantes remontées ; jamais bloquant |
 | Règles métier | `scripts/check-rules.mjs` (pre-commit + Vérification) | bloque un commit qui réintroduit un incident connu (`regles-metier.md`) |
+| Fichiers secrets suivis | `scripts/check-secrets-suivis.mjs` (pre-commit + Vérification) | bloque si `.env`, `.env.local`, `.npmrc` avec jeton, clé privée… est suivi par Git |
 | Suivi | `scripts/check-suivi.js --hook` (pre-commit) | avertit si du code part sans entrée au suivi ; jamais bloquant |
-| Méthode | `scripts/verifier-methode.mjs` | Fiche projet remplie, hooks, frontmatter, scripts valides |
+| Méthode | `scripts/verifier-methode.mjs` | Fiche projet remplie, hooks, frontmatter, scripts valides, registre des erreurs présent |
 
 Hook Git actif seulement après `git config core.hooksPath .githooks` (une fois par clone). Un blocage n'est
 jamais une erreur à contourner : c'est le signal de corriger, ou de demander.

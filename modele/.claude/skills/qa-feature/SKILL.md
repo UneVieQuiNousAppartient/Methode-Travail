@@ -40,6 +40,12 @@ Commandes de la **Fiche projet** (`CLAUDE.md`) :
 Lancer **seulement** les tests liés à la phase ; la commande Vérification
 complète est le travail de la CI et de `livrer`.
 
+Si la phase touche une règle de calcul critique (argent, quantités, droits
+d'accès, dates de facturation) : vérifier qu'elle suit la skill
+**`tester-dabord`** — fonction pure, test à côté qui couvre bornes et cas
+« méchant », preuve que le test échoue quand on casse la règle, test de
+parité si la règle existe côté client et côté serveur. Un manque = critère ❌.
+
 ## 3. Cocher un à un
 
 Pour chaque critère, une preuve observée : sortie de test, code HTTP, capture,

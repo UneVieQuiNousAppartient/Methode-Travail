@@ -16,6 +16,24 @@ Ferme un chantier dans les règles. Existe parce que les trois dernières étape
 saute quand le code « a l'air fini ». C'est ce qui a produit une semaine de
 travail non commité, et un suivi qui annonçait une date vieille de neuf jours.
 
+## Règles absolues — valables à chaque étape
+
+- **Aucune fusion ni mise en production sans le mot explicite** de la personne
+  qui valide (Fiche projet) : « fusionne », « mets en production ». Un « ça a
+  l'air bien », un silence ou un accord donné pour autre chose ne compte pas.
+- **Rien qui modifie des données de clients** (commandes, comptes, paiements,
+  stock réel, envois de courriels) sans son accord, y compris « pour tester ».
+- **Pas d'identifiant de modèle d'IA** (nom ou numéro de version de modèle) dans
+  les messages de commit, les titres et descriptions de PR ni le code — les
+  lignes d'attribution imposées par l'outil restent celles qu'il fixe.
+- **Après un push** : PR en **brouillon**, puis la **surveiller** (CI,
+  commentaires) jusqu'à ce qu'elle soit verte ou que le problème soit rapporté.
+- **Fonction serveur** (fonction edge, *serverless*, tâche planifiée) :
+  **redéployée ET testée en direct** par un appel réel **non destructeur**
+  (lecture, requête refusée attendue, mode test) — pas seulement le code poussé.
+- **Ne jamais dire « c'est fait » sans preuve** : chaque affirmation du compte
+  rendu s'appuie sur une sortie observée ; un test rouge se dit, il ne se tait pas.
+
 ## Étapes, dans l'ordre, sans en sauter
 
 ### 1. Les contrôles que la CI exécutera de toute façon
@@ -27,6 +45,17 @@ ce que rejoue la CI, règles métier (`scripts/check-rules.mjs`) comprises.
 Un seul rouge arrête tout. Ne jamais annoncer « c'est livré » avec un test qui
 échoue — le dire et s'arrêter là. Fiche projet non remplie : la remplir d'abord
 (avec la personne qui valide), pas deviner la commande.
+
+Puis relire son propre diff avec une question : « qu'est-ce qui ferait échouer
+la CI, ou la production ? ». Selon le type de changement :
+- **règle de calcul** (argent, quantités, accès, dates) : test selon la skill
+  `tester-dabord`, parité verte si la règle existe des deux côtés ;
+- **migration** : fichier versionné, appliqué, et enregistré là où l'outil de
+  migration du projet le note ;
+- **fonction serveur** : redéploiement et appel réel non destructeur (règles
+  absolues ci-dessus) ;
+- **fichier YAML** (CI) : validé par un analyseur
+  (`python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" <fichier>`).
 
 ### 2. Vérification dans le navigateur, si le changement est visible
 
@@ -85,12 +114,15 @@ rejoue `check-suivi.js` en avertissement et `check-rules.mjs` en blocage : un
 refus du hook se corrige, il ne se contourne pas (`--no-verify` seulement avec
 l'accord de la personne qui valide, raison dans le message de commit).
 Pousser la branche de travail et ouvrir/mettre à jour la PR (brouillon) ;
-**ne rien fusionner**.
+**ne rien fusionner**. Puis surveiller la CI de la PR : un échec se diagnostique
+(skill `incident`), il ne s'ignore pas.
 
 ### 6. Proposer la mise en ligne — sans la faire
 
 Résumer ce qui part, puis **demander**. Ne jamais pousser en production sans
-accord explicite de la personne qui valide (Fiche projet), même quand tout est vert.
+accord explicite de la personne qui valide (Fiche projet), même quand tout est
+vert — et ce mot explicite (« fusionne », « mets en production ») vaut pour ce
+lot-là seulement.
 
 ```bash
 git status --short

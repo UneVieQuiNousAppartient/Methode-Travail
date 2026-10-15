@@ -6,8 +6,9 @@
 
 ## Ordre de lecture
 
-1. Ce fichier → 2. **`docs/ETAT-ACTUEL.md`** (chantiers, décisions en attente, PR ouvertes) → 3. documents du
-   projet (`docs/projets/<slug>/`).
+1. Ce fichier → 2. **`docs/ETAT-ACTUEL.md`** (chantiers, décisions en attente, PR ouvertes) →
+   3. **`docs/ERREURS-CONNUES.md`** (erreurs déjà diagnostiquées ; par `grep` sur le message s'il est long) →
+   4. documents du projet (`docs/projets/<slug>/`).
 - **Jamais `SUIVI-TACHES.md` en entier** (grep + lecture ciblée) — règle `.claude/rules/suivi-taches.md`.
 - Budget et modèles : `.claude/rules/budget-jetons.md` — tout appel d'agent nomme son modèle (Opus pour le
   développement, Sonnet pour le contenu, Haiku pour les automatisations quotidiennes).
@@ -40,7 +41,8 @@ fiche restée à « <à remplir…> »). Une ligne par clé ; « — » quand c'
 | Valide les livraisons | <à remplir : la personne qui donne l'accord (plans, mises en ligne, migrations)> |
 
 La commande **Vérification** est la seule qui fait foi avant un commit : si elle passe en local, la CI passe.
-Elle inclut `node scripts/check-rules.mjs` (règles métier mécaniques, `.claude/rules/regles-metier.md`).
+Elle inclut `node scripts/check-rules.mjs` (règles métier mécaniques, `.claude/rules/regles-metier.md`) et
+`node scripts/check-secrets-suivis.mjs` (aucun `.env`, jeton ou clé privée suivi par Git).
 Détail possible des étapes qu'elle enchaîne (pour diagnostiquer un échec) :
 - `<typecheck>` · `<lint>` · `<tests unitaires>` · `<build>` · `<audit des dépendances>`
 

@@ -21,16 +21,19 @@ règles, agents et skills doivent donc vivre dans le `.claude/` de chaque dépô
 | Règles métier | `.claude/rules/regles-metier.md` + `scripts/check-rules.mjs` | Un incident de contenu ou de sécurité récurrent devient une règle mécanique (id, incident, motif, dossiers, message), pas un rappel dans un agent |
 | Réglages | `.claude/settings.json` | Agents en Opus par défaut ; hooks SessionStart, PreToolUse, PostToolUse ; liste de plugins à couper selon le projet |
 | Hooks Claude Code | `scripts/hook-protect-files.mjs`, `scripts/hook-lint-fix.mjs` | Refus d'écrire `.env*`, verrous, artefacts ; `eslint --fix` sur chaque fichier écrit (si ESLint est installé) |
-| Hook Git | `.githooks/pre-commit` | `check-suivi.js --hook` (avertit, ne bloque pas) + `check-rules.mjs` (bloque) ; actif après `git config core.hooksPath .githooks` |
+| Registre des erreurs connues | `docs/ERREURS-CONNUES.md` + règle `suivi-taches.md` | Message exact, cause prouvée, solution ; lu après `ETAT-ACTUEL.md` : une erreur déjà diagnostiquée ne se rediagnostique pas |
+| Fichiers secrets suivis | `scripts/check-secrets-suivis.mjs` | Refuse un `.env`, un `.npmrc` avec jeton, une clé privée suivis par Git, ou un `.env.example` avec une vraie valeur |
+| Hook Git | `.githooks/pre-commit` | `check-suivi.js --hook` (avertit, ne bloque pas) + `check-secrets-suivis.mjs` et `check-rules.mjs` (bloquent) ; actif après `git config core.hooksPath .githooks` |
 | Démarrage | `scripts/session-start.sh` | En cloud : dépendances, navigateur de test, état du projet affiché |
-| Contrôle de la méthode | `scripts/verifier-methode.mjs` | Réglages, frontmatter, scripts, Fiche projet remplie, dossiers de code, `SOURCE.md`, hook Git actif |
+| Contrôle de la méthode | `scripts/verifier-methode.mjs` | Réglages, frontmatter, scripts, Fiche projet remplie, dossiers de code, `SOURCE.md`, hook Git actif, registre des erreurs présent |
 | Veille des skills copiées | `scripts/skills-check.mjs` | Signale les skills dont la source a changé en amont ; ne met rien à jour |
 | Chaîne de documents | skill `nouveau-projet` + 5 agents de conception | BRIEF → PRD + APP-FLOW → SCHEMA → TRD → UI-GUIDE (+ maquettes Claude Design) → IMPLEMENTATION-PLAN → revue `qa-agent` |
 | Agents de code | `orchestrateur`, `data-agent`, `ux-agent`, `ai-agent`, `qa-agent`, `prompt-agent` | Socle commun ; une section « Propre au projet » à remplir |
 | Agents de revue | `securite`, `revue-integration` | Lecture seule, Opus, verdict binaire ; ne croient jamais le résumé de l'auteur |
-| 12 skills | `.claude/skills/` | `nouveau-projet`, `livrer`, `point-projet`, `qa-feature`, `nouvelle-page`, `audit-seo`, `deploiement`, `incident`, `client-onboarding`, `diagnostic-ai`, `email-automation`, `recommendation-engine` |
-| Gabarits | `CLAUDE.md`, `docs/ETAT-ACTUEL.md`, `docs/projets/_modele/BRIEF.md`, `.github/PULL_REQUEST_TEMPLATE.md` | Points de départ à remplir |
-| Exemples | `exemples/` (hors `modele/`) | CI qui saute build et tests sur les PR de documentation ; Dependabot groupé ; `check-ownership.mjs` |
+| 13 skills | `.claude/skills/` | `nouveau-projet`, `livrer`, `point-projet`, `qa-feature`, `tester-dabord`, `nouvelle-page`, `audit-seo`, `deploiement`, `incident`, `client-onboarding`, `diagnostic-ai`, `email-automation`, `recommendation-engine` |
+| Tester d'abord | skill `tester-dabord` | Règle de calcul critique (argent, quantités, accès, dates) en fonction pure + test écrit avant ou avec le code ; test de parité client ↔ serveur |
+| Gabarits | `CLAUDE.md`, `docs/ETAT-ACTUEL.md`, `docs/ERREURS-CONNUES.md`, `docs/projets/_modele/BRIEF.md`, `.github/PULL_REQUEST_TEMPLATE.md` | Points de départ à remplir |
+| Exemples | `exemples/` (hors `modele/`) | CI qui saute build et tests sur les PR de documentation ; CI de préproduction avec tests de fumée sur l'URL déployée ; description de PR obligatoire ; gitleaks ; `CODEOWNERS` ; Dependabot groupé ; `check-ownership.mjs` |
 
 ### Plusieurs agents sur un même dépôt : `exemples/check-ownership.mjs`
 
@@ -51,6 +54,26 @@ Toute skill reprise d'un dépôt externe porte, à côté de son `SKILL.md`, un 
 Une skill copiée ne se modifie pas sur place ; `skills-check.mjs` dit quand la source a bougé, on relit le
 diff, puis on remplace. Une skill qui déclare `source:` dans son frontmatter sans `SOURCE.md` fait échouer
 `verifier-methode.mjs`.
+
+## CI : bonnes pratiques
+
+Tirées de la CI de Ben's (15 oct. 2026) et de VieSolution ; exemples dans `exemples/`. Le quota de minutes
+GitHub Actions est une ressource : une CI qui tourne pour rien finit par bloquer celle qui compte.
+- **`timeout-minutes` sur chaque job** (5 pour un contrôle, 15 pour la qualité, 20 pour des tests de bout en
+  bout) : sans lui, un job bloqué tourne 6 heures.
+- **`concurrency` + `cancel-in-progress: true`** par branche : un nouveau push annule l'exécution précédente.
+- **CI de production au push sur `main` seulement**, pas en double sur la PR vers `main` : la PR a déjà été
+  vérifiée sur sa branche (`ci-staging-smoke.yml`), la production rejoue après fusion.
+- **`cache: npm`** dans `actions/setup-node` (ou l'équivalent de la pile) et `npm ci`.
+- **Le job qualité lance exactement la commande Vérification** de la Fiche projet — rien de plus, rien de moins.
+- **Tests de fumée contre l'URL déployée**, pas seulement en local (`ci-staging-smoke.yml`) : URL de
+  préproduction **stable** (variable du dépôt), attente bornée avant les tests, rapport Playwright en artefact.
+- **Secrets vérifiés avant usage** (étape qui échoue avec un message clair s'il en manque un), jamais
+  affichés ; **`permissions` minimales** (`contents: read` par défaut).
+- **PR documentée** (`check-pr-notes.yml`), **chemins sensibles relus** (`CODEOWNERS`), **historique sans
+  secret** (`secret-scan.yml`, gitleaks avec base de référence), PR de documentation qui sautent build et
+  tests (`ci-changes.yml`), Dependabot groupé (`dependabot.yml`).
+- **YAML validé avant commit** : `python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" <fichier>`.
 
 ## Installer dans un projet
 
@@ -76,7 +99,9 @@ La session doit alors, dans cet ordre :
    - `scripts/hook-protect-files.mjs` : fichiers protégés propres au projet ; `scripts/hook-lint-fix.mjs` :
      autre correcteur si la pile n'est pas JavaScript ;
    - `scripts/check-rules.mjs` : les incidents déjà vécus par le projet deviennent des règles (voir les
-     exemples commentés) ;
+     exemples commentés) ; `scripts/check-secrets-suivis.mjs` : ajouté à la commande Vérification ;
+   - `docs/ERREURS-CONNUES.md` : y reporter les erreurs déjà notées ailleurs dans le projet (mémoire,
+     suivi), supprimer les deux lignes d'exemple ;
    - section « Propre au projet » de `orchestrateur`, `data-agent`, `ux-agent`, `ai-agent` ;
    - liste « Propres au projet » de `agent-workflow.md` ;
    - plusieurs agents sur le dépôt : `exemples/check-ownership.mjs` (voir plus haut).
@@ -95,7 +120,9 @@ Fiche projet non remplie y est attendue).
 Les nouveaux agents et skills ne se chargent qu'**à la session suivante**.
 
 **Ben's (Les Jus Naturels Ben's)** a déjà son système (skill `jusbens-dev`, orchestrateur et 12 agents) : y
-ajouter les règles, la chaîne de documents et les skills communes, sans remplacer ses agents métier.
+ajouter les règles, la chaîne de documents et les skills communes, sans remplacer ses agents métier. Sa skill
+`tester-dabord` a le même nom que celle du modèle (qui en est tirée) : garder la sienne, propre au projet, et
+signaler le doublon ; sa table « Erreurs connues » de `MEMORY.md` peut devenir son `docs/ERREURS-CONNUES.md`.
 
 ## Leçons du premier passage (VieSolution, 15 oct. 2026)
 
@@ -123,6 +150,22 @@ n'avait pas ; ils sont repris dans la 1.1.0.
   dans le code, verdict binaire.
 - **Les skills copiées gardent leur origine** (`SOURCE.md`) et se remplacent, elles ne se modifient pas.
 
+## Leçons de Ben's (15 oct. 2026)
+
+Les Jus Naturels Ben's (boutique en ligne, paiement réel, propriétaire non technique) avait des habitudes
+que le modèle n'écrivait pas ; elles sont reprises dans la 1.2.0.
+- **Une erreur diagnostiquée s'écrit** : sa table « Erreurs connues — NE JAMAIS RÉPÉTER » (15 lignes, message
+  exact, cause, solution) évitait de repayer les mêmes diagnostics → `docs/ERREURS-CONNUES.md`.
+- **Quand le site encaisse, chaque calcul a son test** — et un test de parité compare le total affiché au
+  total facturé sur 5 000 paniers aléatoires → skill `tester-dabord`.
+- **La cause en une phrase avant le correctif** : pas de changement « pour voir » → skill `incident`.
+- **L'accord se proportionne au risque** : argent, paiement, accès, schéma, données de clients = accord avant
+  le code ; le reste = annoncer puis faire. Et les questions se posent en français simple → `agent-workflow.md`.
+- **Le mot explicite** (« fusionne », « mets en production ») et la fonction serveur **testée en direct**,
+  pas seulement poussée → `livrer`.
+- **La CI se protège elle-même** : délais, annulation des exécutions dépassées, tests de fumée sur le site
+  déployé, secrets et fichiers sensibles refusés → `exemples/`, `check-secrets-suivis.mjs`.
+
 ## Tenir le modèle à jour
 
 Une amélioration de la méthode faite dans un projet (règle, agent, skill, script) se reporte ici par une PR
@@ -136,8 +179,8 @@ autres projets à leur prochaine session de travail ; la ligne « Méthode : ver
 - La skill `nouveau-projet` est reconstruite d'après la fiche de VieSolution : le texte d'origine de
   `creer-docs-projet` reste à y recoller.
 - Quatre skills restent bâties sur un cas VieSolution (`client-onboarding`, `diagnostic-ai`, `email-automation`,
-  `recommendation-engine`) et le signalent en tête ; les sept skills de livraison et de contrôle passent,
-  elles, par la Fiche projet.
+  `recommendation-engine`) et le signalent en tête ; les neuf autres (livraison, contrôle, conception)
+  passent, elles, par la Fiche projet.
 - Des agents propres à VieSolution sont cités comme exemples sans être fournis : `conformite-agent` (garde-fou
   AMF des contenus IA), `automation-dev-agent` et `email-automation-agent` (courriels automatisés), `i18n-agent` (traductions, cité
   par `tech-lead` et `nouveau-projet`). Les créer
@@ -145,6 +188,18 @@ autres projets à leur prochaine session de travail ; la ligne « Méthode : ver
 - `hook-lint-fix.mjs` ne connaît qu'ESLint ; une autre pile ajoute son correcteur dans `CORRECTEURS`.
 - `check-rules.mjs` n'a que deux règles génériques actives (secret en dur, marqueur de conflit) : sa valeur
   vient des règles que chaque projet y ajoute à partir de ses propres incidents.
+- `check-secrets-suivis.mjs` ne voit que l'état courant de l'index Git : un secret déjà poussé reste dans
+  l'historique (le révoquer ; `exemples/secret-scan.yml` parcourt l'historique). Sa liste de fichiers et de
+  motifs est générique ; un projet ajoute ses propres fichiers sensibles. Il refuse **tout** `.env.*` suivi qui
+  n'est pas un gabarit, y compris `.env.development` ou `.env.test` que certains projets (Vite) versionnent avec des
+  valeurs publiques : les déclarer dans `AUTORISES`, avec la raison.
+- `docs/ERREURS-CONNUES.md` ne vaut que s'il est tenu : rien ne vérifie mécaniquement qu'une erreur
+  diagnostiquée y a été notée (c'est `incident` et `livrer` qui le demandent).
+- La skill `tester-dabord` est indépendante de l'outil de test (Vitest, Jest, pytest…) : la commande vient de
+  la Fiche projet. Le test de parité suppose que les deux fonctions (client, serveur) sont importables par le
+  même outil de test.
+- Les exemples de CI (`exemples/`) supposent GitHub Actions, Node et Playwright ; la commande de déploiement
+  de `ci-staging-smoke.yml` est à brancher (Vercel en commentaire).
 - Le hook Git n'est actif qu'après `git config core.hooksPath .githooks`, à refaire sur chaque clone ;
   `verifier-methode.mjs` le signale. La CI reste le filet : la commande Vérification doit y tourner.
 - `scripts/check-suivi.js` est un module ES en `.js` : il demande Node ≥ 22.12 (détection automatique) ou

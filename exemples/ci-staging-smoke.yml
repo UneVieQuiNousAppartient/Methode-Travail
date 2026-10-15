@@ -1,0 +1,130 @@
+# Exemple — CI de préproduction : qualité → déploiement d'aperçu → tests de fumée contre l'URL déployée.
+# Exemple (Ben's) : patron tiré de son ci-test.yml (15 oct. 2026), généralisé.
+#
+# Pourquoi : les tests sur le poste ou dans la CI tournent contre un serveur local ; ce qui casse en vrai
+# (variable d'environnement absente, route mal réécrite par l'hébergeur, base injoignable) ne se voit que
+# sur le site DÉPLOYÉ. Les tests de fumée Playwright y passent quelques parcours essentiels, à chaque push
+# sur la branche de préproduction.
+#
+# À adapter : nom de la branche, commande de qualité (= ligne « Vérification » de la Fiche projet),
+# commande de déploiement (ici Vercel CLI, en commentaire), fichier des tests de fumée, secrets.
+# Règles appliquées (README, « CI : bonnes pratiques ») : timeout-minutes sur chaque job, concurrency +
+# cancel-in-progress, cache npm, permissions minimales, secrets vérifiés avant usage.
+name: CI — Préproduction
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [staging]
+  pull_request:
+    branches: [staging]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-staging-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # --- 1. Qualité : exactement la commande « Vérification » de la Fiche projet -------------------
+  quality:
+    name: Vérification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run verify
+
+  # --- 2. Déploiement d'aperçu (au push seulement : une PR ne déploie pas) -----------------------
+  deploy:
+    name: Déploiement de préproduction
+    if: github.event_name == 'push'
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: staging
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+
+      - name: Vérifier les secrets de déploiement
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          if [ -z "$DEPLOY_TOKEN" ]; then
+            echo "::error::Secret DEPLOY_TOKEN manquant (Settings > Secrets > Actions)."
+            exit 1
+          fi
+
+      - name: Déployer
+        id: deploy
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+          STAGING_URL: ${{ vars.STAGING_URL }}
+        run: |
+          # Exemple Vercel (à remplacer par la commande de l'hébergeur du projet) :
+          #   npx vercel pull --yes --environment=preview --token="$DEPLOY_TOKEN"
+          #   npx vercel build --token="$DEPLOY_TOKEN"
+          #   npx vercel deploy --prebuilt --token="$DEPLOY_TOKEN"
+          # URL STABLE de préproduction (variable du dépôt), pas extraite de la sortie de la commande :
+          # l'extraction (codes de couleur, « https:// » en double) s'est montrée fragile.
+          echo "Déploiement à brancher ici."
+          echo "url=$STAGING_URL" >> "$GITHUB_OUTPUT"
+
+  # --- 3. Tests de fumée contre l'URL déployée ---------------------------------------------------
+  smoke:
+    name: Tests de fumée (préproduction)
+    if: github.event_name == 'push'
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: Attendre que le site réponde (4 min au plus)
+        env:
+          URL: ${{ needs.deploy.outputs.url }}
+        run: |
+          if [ -z "$URL" ]; then echo "::error::URL de préproduction vide — voir le job deploy."; exit 1; fi
+          for i in $(seq 1 24); do
+            STATUS=$(curl -o /dev/null -sL --max-time 15 -w "%{http_code}" "$URL" || echo "000")
+            echo "Tentative $i/24 — HTTP $STATUS"
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "304" ]; then exit 0; fi
+            sleep 10
+          done
+          echo "::error::Préproduction injoignable après 4 minutes (dernier HTTP : $STATUS)."
+          exit 1
+
+      - name: Tests de fumée
+        run: npx playwright test e2e/smoke.spec.ts --project=chromium --retries=1
+        env:
+          CI: 'true'
+          PLAYWRIGHT_BASE_URL: ${{ needs.deploy.outputs.url }}
+
+      - name: Rapport Playwright
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: rapport-fumee
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
