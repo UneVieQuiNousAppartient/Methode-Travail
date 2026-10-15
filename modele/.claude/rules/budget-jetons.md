@@ -44,7 +44,8 @@ de Camille au-delà de 1 M** restent la protection principale du budget.
 ## Lectures
 
 - Ordre de lecture d'une session : `CLAUDE.md` → `docs/ETAT-ACTUEL.md` →
-  documents du projet (`docs/projets/<slug>/`, fiche de chantier).
+  `docs/ERREURS-CONNUES.md` (par `grep` s'il est long) → documents du projet
+  (`docs/projets/<slug>/`, fiche de chantier).
 - **Jamais `SUIVI-TACHES.md` en entier** : `grep` sur le numéro de section ou un
   mot-clé, puis lecture ciblée. L'archive `docs/suivi/` se consulte de même.
 - Pas de relecture d'un fichier déjà en contexte.

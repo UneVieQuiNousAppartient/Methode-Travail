@@ -1,0 +1,32 @@
+# Exemple — CODEOWNERS : chemins sensibles qui exigent la relecture d'une personne désignée.
+# Exemple (Ben's) : patron tiré de son .github/CODEOWNERS (15 oct. 2026), généralisé.
+#
+# À copier dans .github/CODEOWNERS, remplacer @proprietaire par le compte GitHub de la personne qui
+# valide (Fiche projet, « Valide les livraisons ») et adapter les chemins à la pile.
+# Effet réel seulement si la protection de branche exige « Require review from Code Owners » ; sur un
+# dépôt à une seule personne, il sert surtout de carte des zones sensibles (et de liste pour `securite`).
+# Règle GitHub : la DERNIÈRE ligne qui correspond l'emporte — le défaut d'abord, le plus précis ensuite.
+# https://docs.github.com/fr/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# ── Par défaut ────────────────────────────────────────────────────────────────
+*                               @proprietaire
+
+# ── Authentification et accès ─────────────────────────────────────────────────
+src/features/auth/              @proprietaire
+src/lib/auth*                   @proprietaire
+middleware.*                    @proprietaire
+
+# ── Paiement et calculs d'argent ──────────────────────────────────────────────
+src/features/paiement/          @proprietaire
+src/lib/paiement/               @proprietaire
+
+# ── Base de données : migrations, règles d'accès, fonctions serveur ───────────
+supabase/migrations/            @proprietaire
+supabase/functions/             @proprietaire
+**/*.sql                        @proprietaire
+
+# ── CI, déploiement, garde-fous ───────────────────────────────────────────────
+.github/                        @proprietaire
+.githooks/                      @proprietaire
+scripts/check-*.mjs             @proprietaire
+vercel.json                     @proprietaire

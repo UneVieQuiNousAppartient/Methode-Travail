@@ -1,0 +1,48 @@
+# Exemple — description de PR obligatoire.
+# Exemple (Ben's) : patron tiré de son check-pr-notes.yml (15 oct. 2026), aligné ici sur le modèle de PR
+# du modèle (modele/.github/PULL_REQUEST_TEMPLATE.md : « ## Pourquoi ce changement ? »).
+#
+# Pourquoi : une PR sans description oblige la personne qui valide à lire le diff pour savoir ce qu'elle
+# accepte ; la section « Pourquoi » est celle qu'on saute. Ce contrôle refuse un titre trop court, une
+# description vide, ou un modèle de PR laissé tel quel. Ne coûte presque rien (pas de checkout).
+name: Description de PR
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  pull-requests: read
+
+concurrency:
+  group: pr-notes-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  description:
+    name: Description obligatoire
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/github-script@v8
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const titre = (pr.title || '').trim();
+            const corps = (pr.body || '').replace(/<!--[\s\S]*?-->/g, '').trim();
+
+            if (titre.length < 10) {
+              core.setFailed('Titre de PR trop court (10 caractères au moins) : dire ce que fait le changement.');
+              return;
+            }
+            if (corps.length < 50) {
+              core.setFailed('Description de PR obligatoire (50 caractères au moins, commentaires du modèle exclus) : QUOI et POURQUOI.');
+              return;
+            }
+            // Section « Pourquoi » du modèle de PR : doit être remplie, pas seulement présente.
+            const pourquoi = corps.match(/##\s*Pourquoi[^\n]*\n([\s\S]*?)(?=\n##\s|$)/i);
+            if (pourquoi && pourquoi[1].trim().length < 20) {
+              core.setFailed('La section « Pourquoi ce changement ? » est vide ou trop courte.');
+              return;
+            }
+            core.info('Description de PR valide.');

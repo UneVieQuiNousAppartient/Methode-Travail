@@ -25,6 +25,11 @@ Chaque règle porte :
 - Exception ponctuelle : commentaire `regle-ok: <id>` sur la ligne, **avec la raison**. Une exception sans
   raison se refuse en revue (`revue-integration`).
 
+Une faute qui ne se voit pas ligne par ligne mais à la **présence d'un fichier** (un `.env` suivi par Git)
+a son propre script : `scripts/check-secrets-suivis.mjs`, branché au même hook et à la même Vérification.
+L'explication d'une erreur déjà diagnostiquée va, elle, dans `docs/ERREURS-CONNUES.md` (`suivi-taches.md`) :
+le registre explique, la règle empêche.
+
 ## Ce qui reste aux agents
 
 Ce qu'un motif ne peut pas voir : un fait plausible mais jamais dit par le client, une régression

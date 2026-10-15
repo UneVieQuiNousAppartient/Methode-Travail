@@ -4,8 +4,9 @@
 #
 # 1. Suivi des tâches : avertit (sans bloquer, sans question) si du code part sans
 #    entrée dans SUIVI-TACHES.md, ou si son en-tête n'est pas daté du jour.
-# 2. Règles métier et sécurité (scripts/check-rules.mjs) : BLOQUANT.
-# 3. (Facultatif, projets à plusieurs agents) périmètre de chacun : voir
+# 2. Fichiers sensibles suivis par Git (scripts/check-secrets-suivis.mjs) : BLOQUANT.
+# 3. Règles métier et sécurité (scripts/check-rules.mjs) : BLOQUANT.
+# 4. (Facultatif, projets à plusieurs agents) périmètre de chacun : voir
 #    exemples/check-ownership.mjs du dépôt methode-travail, puis décommenter.
 #
 # Contournement ponctuel, à justifier dans le message de commit : git commit --no-verify
@@ -20,6 +21,13 @@ fi
 
 if [ -f scripts/check-suivi.js ]; then
   node scripts/check-suivi.js --hook || true
+fi
+
+if [ -f scripts/check-secrets-suivis.mjs ]; then
+  node scripts/check-secrets-suivis.mjs || {
+    echo "[pre-commit] commit refusé : fichier sensible suivi par Git (voir ci-dessus)" >&2
+    exit 1
+  }
 fi
 
 if [ -f scripts/check-rules.mjs ]; then

@@ -1,6 +1,6 @@
 # État actuel — <Nom du projet>
 
-**Mis à jour : <date>.** Premier fichier lu par chaque session (après `CLAUDE.md`). ≤ 40 lignes : on remplace, on n'empile pas. Historique : `SUIVI-TACHES.md` (par `grep`, jamais en entier).
+**Mis à jour : <date>.** Premier fichier lu par chaque session (après `CLAUDE.md`, avant `docs/ERREURS-CONNUES.md`). ≤ 40 lignes : on remplace, on n'empile pas. Historique : `SUIVI-TACHES.md` (par `grep`, jamais en entier).
 
 Méthode : version <X.Y.Z> (dépôt `methode-travail`, fichier `VERSION`) — installée ou mise à jour le <date>.
 

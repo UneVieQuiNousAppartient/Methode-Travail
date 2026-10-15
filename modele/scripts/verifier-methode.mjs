@@ -9,7 +9,8 @@
 //   4. CLAUDE.md : section « Fiche projet » présente, toutes ses clés, et remplie ;
 //   5. dossiers de code (Fiche projet, sinon CHEMINS_CODE de check-suivi.js) existants ;
 //   6. skills copiées d'un autre dépôt : SOURCE.md présent et complet ;
-//   7. hook Git activé (core.hooksPath), version de la méthode notée dans docs/ETAT-ACTUEL.md.
+//   7. hook Git activé (core.hooksPath), garde-fous appelés par la Vérification, version de la
+//      méthode notée dans docs/ETAT-ACTUEL.md, registre docs/ERREURS-CONNUES.md présent.
 //
 // Usage :
 //   node scripts/verifier-methode.mjs             projet installé : tout manque est une erreur
@@ -209,6 +210,14 @@ const paquet = path.join(RACINE, "package.json");
 if (!GABARIT && existsSync(paquet) && existsSync(path.join(dossierScripts, "check-rules.mjs"))) {
     /check-rules/.test(lire(paquet)) ? ok("check-rules appelé par un script de package.json") : avert("check-rules.mjs n'est appelé par aucun script de package.json : l'ajouter à la commande « Vérification »");
 }
+if (!existsSync(path.join(dossierScripts, "check-secrets-suivis.mjs"))) avert("scripts/check-secrets-suivis.mjs absent (fichiers sensibles suivis par Git)");
+else if (!GABARIT && existsSync(paquet)) {
+    /check-secrets-suivis/.test(lire(paquet)) ? ok("check-secrets-suivis appelé par un script de package.json") : avert("check-secrets-suivis.mjs n'est appelé par aucun script de package.json : l'ajouter à la commande « Vérification »");
+}
+const erreursConnues = path.join(RACINE, "docs", "ERREURS-CONNUES.md");
+if (!existsSync(erreursConnues)) erreur("docs/ERREURS-CONNUES.md absent (registre des erreurs connues, gabarit : modele/docs/ERREURS-CONNUES.md)");
+else if (!/^\|\s*#\s*\|\s*Erreur/m.test(lire(erreursConnues))) avert("docs/ERREURS-CONNUES.md : en-tête de table « | # | Erreur (message exact) | Cause | Solution | Règle | » introuvable");
+else ok("docs/ERREURS-CONNUES.md présent");
 const etat = path.join(RACINE, "docs", "ETAT-ACTUEL.md");
 if (!existsSync(etat)) avert("docs/ETAT-ACTUEL.md absent");
 else {
