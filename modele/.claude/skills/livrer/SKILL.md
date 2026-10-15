@@ -18,23 +18,22 @@ travail non commité, et un suivi qui annonçait une date vieille de neuf jours.
 
 ## Étapes, dans l'ordre, sans en sauter
 
-### 1. Les contrôles que le CI exécutera de toute façon
+### 1. Les contrôles que la CI exécutera de toute façon
 
-```bash
-npm run typecheck
-npm run lint
-npx vitest run
-```
+La commande **Vérification** de la Fiche projet (`CLAUDE.md`) — une seule, exactement
+ce que rejoue la CI, règles métier (`scripts/check-rules.mjs`) comprises.
+*Exemple (VieSolution)* : `npm run typecheck && npm run lint && npx vitest run`.
 
 Un seul rouge arrête tout. Ne jamais annoncer « c'est livré » avec un test qui
-échoue — le dire et s'arrêter là.
+échoue — le dire et s'arrêter là. Fiche projet non remplie : la remplir d'abord
+(avec la personne qui valide), pas deviner la commande.
 
 ### 2. Vérification dans le navigateur, si le changement est visible
 
 Si le chantier touche une page, un composant ou une route : démarrer le serveur
-de dev, ouvrir les écrans concernés, cliquer les parcours modifiés, vérifier la
-console et les logs. Contrôler aussi la vue mobile 375 px — la règle
-mobile-first du §2.0 du suivi s'applique à chaque livraison.
+local (ligne **Serveur local** de la Fiche projet), ouvrir les écrans concernés,
+cliquer les parcours modifiés, vérifier la console et les journaux. Contrôler
+aussi la vue mobile 375 px.
 
 Ne jamais demander à Camille de vérifier à sa place ce qui peut être vérifié ici.
 
@@ -81,23 +80,27 @@ node scripts/check-suivi.js; echo "code=$?"
 
 Un commit par lot cohérent, message en français (`type(portée): résumé`),
 après `qa-agent` si 2 fichiers ou plus (verrou de `agent-workflow.md`).
+Le hook `.githooks/pre-commit` (actif si `git config core.hooksPath .githooks`)
+rejoue `check-suivi.js` en avertissement et `check-rules.mjs` en blocage : un
+refus du hook se corrige, il ne se contourne pas (`--no-verify` seulement avec
+l'accord de la personne qui valide, raison dans le message de commit).
 Pousser la branche de travail et ouvrir/mettre à jour la PR (brouillon) ;
 **ne rien fusionner**.
 
 ### 6. Proposer la mise en ligne — sans la faire
 
-Résumer ce qui part, puis **demander**. Ne jamais pousser sans accord explicite
-de Camille, même quand tout est vert.
+Résumer ce qui part, puis **demander**. Ne jamais pousser en production sans
+accord explicite de la personne qui valide (Fiche projet), même quand tout est vert.
 
 ```bash
 git status --short
 git diff --stat
 ```
 
-S'ils existent dans le projet (VieSolution : oui), les proposer plutôt qu'une commande git brute ; sinon, commit et PR habituels :
-`push-staging.bat` pour `staging`, `push-prod.bat` pour `main` (avec
-confirmation). Les deux passent par `scripts/push-common.bat`, qui refait les
-vérifications et contrôle la fraîcheur du suivi.
+Mode de mise en ligne : ligne **Déploiement** de la Fiche projet (souvent :
+fusion de la PR, puis skill `deploiement`). *Exemple (VieSolution)* : scripts
+Windows `push-staging.bat` / `push-prod.bat`, qui passent par
+`scripts/push-common.bat` et rejouent les vérifications et `check-suivi.js`.
 
 ## Compte rendu attendu
 

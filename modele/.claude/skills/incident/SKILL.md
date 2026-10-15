@@ -25,10 +25,12 @@ Camille.
 ## 2. Reproduire
 
 - Étapes exactes, environnement (production, staging, local), langue, mobile.
-- Production : connecteur Vercel `get_runtime_errors` puis `get_runtime_logs` ;
-  Supabase : journaux et `get_advisors` (lecture seule).
-- Écrire **d'abord** un test qui échoue (vitest ou Playwright) — c'est la
-  preuve de reproduction et le futur test de non-régression.
+- Production : journaux de l'hébergeur et de la base (connecteurs en lecture
+  seule ; *exemple Vercel + Supabase* : `get_runtime_errors` puis
+  `get_runtime_logs`, `get_advisors`).
+- Écrire **d'abord** un test qui échoue (outil de test de la Fiche projet,
+  ligne **Tests ciblés**) — c'est la preuve de reproduction et le futur test
+  de non-régression.
 
 ## 3. Diagnostiquer
 
@@ -46,15 +48,18 @@ commit fautif si trouvé (`git log -S`, `git bisect`).
 
 ## 5. Non-régression
 
-Le test de l'étape 2 passe ; rien n'est affaibli ni ignoré. `typecheck`,
-`lint`, tests ciblés. 2 fichiers ou plus touchés → `qa-agent`
+Le test de l'étape 2 passe ; rien n'est affaibli ni ignoré. Commande
+**Vérification** de la Fiche projet (`CLAUDE.md`). 2 fichiers ou plus touchés → `qa-agent`
 (`model: "opus"`) avant le commit, puis relecture de son diff de tests.
 
 ## 6. Clore
 
 Commit qui référence l'issue (`fix(...): ... (#123)`), PR brouillon, entrée
-au suivi si non trivial, `docs/ETAT-ACTUEL.md` si l'incident y figurait. Si
-un agent risque de reproduire l'erreur, ajouter un rappel dans son fichier.
+au suivi si non trivial, `docs/ETAT-ACTUEL.md` si l'incident y figurait.
+Si l'erreur peut se reproduire et qu'un motif la détecte (contenu inventé,
+secret, domaine en dur…), en faire **une règle de `scripts/check-rules.mjs`**
+(`.claude/rules/regles-metier.md`) ; sinon, un rappel dans le fichier de
+l'agent qui risque de la refaire.
 
 ## Agents et modèles
 Recherche de journaux ou de motifs sur beaucoup de fichiers :

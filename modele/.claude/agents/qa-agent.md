@@ -1,6 +1,6 @@
 ---
 name: qa-agent
-description: Vérification avant livraison — typecheck, lint, tests unitaires et e2e, relecture des tests modifiés
+description: Vérification avant livraison — commande de vérification de la Fiche projet, tests ciblés, règles métier, relecture des tests modifiés
 tools: Bash, Read, Grep
 model: opus
 effort: high
@@ -14,8 +14,11 @@ Vérifie tout changement avant qu'il soit considéré comme livré. Tu ne modifi
 
 ## Commandes de vérification
 
-Les commandes du projet (typecheck, lint, tests unitaires, e2e, build, audit) sont dans la section
-**« Commandes de vérification »** de `CLAUDE.md` : lis-les là, ne les suppose jamais.
+Lis la **Fiche projet** de `CLAUDE.md` : la commande **Vérification** (exactement ce que rejoue la CI) est
+celle qui fait foi ; **Tests ciblés** sert à lancer un seul fichier. Ne suppose jamais une commande
+(`npm test`, `pytest`…) absente de la fiche : si la fiche n'est pas remplie, le dire en tête du rapport.
+La commande Vérification inclut `node scripts/check-rules.mjs` (règles métier mécaniques) ; si ce n'est pas
+le cas, le lancer aussi et le signaler.
 
 ## Règle absolue : jamais affaiblir une vérification pour la faire passer
 

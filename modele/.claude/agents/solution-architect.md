@@ -48,8 +48,9 @@ Puis :
 Pas de nouvelle dépendance sans la signaler comme décision de Camille.
 
 **Le code fait foi sur l'existant** : avant de proposer une route, une table
-ou une tâche planifiée, chercher (Glob/Grep sur `src/app/api/`, `vercel.json`,
-`supabase/`) si elle existe déjà. Si le code couvre ou contredit un document
+ou une tâche planifiée, chercher (Glob/Grep sur les dossiers de code de la
+Fiche projet de `CLAUDE.md` ; *exemple Next.js + Supabase* : `src/app/api/`,
+`vercel.json`, `supabase/`) si elle existe déjà. Si le code couvre ou contredit un document
 d'entrée, le dire en tête des risques et proposer de **compléter l'existant**
 plutôt que de le recréer.
 

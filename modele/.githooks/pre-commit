@@ -1,0 +1,36 @@
+#!/bin/sh
+# Hook Git pre-commit — modèle « methode-travail ».
+# Activation (une fois par clone) : git config core.hooksPath .githooks
+#
+# 1. Suivi des tâches : avertit (sans bloquer, sans question) si du code part sans
+#    entrée dans SUIVI-TACHES.md, ou si son en-tête n'est pas daté du jour.
+# 2. Règles métier et sécurité (scripts/check-rules.mjs) : BLOQUANT.
+# 3. (Facultatif, projets à plusieurs agents) périmètre de chacun : voir
+#    exemples/check-ownership.mjs du dépôt methode-travail, puis décommenter.
+#
+# Contournement ponctuel, à justifier dans le message de commit : git commit --no-verify
+
+racine=$(git rev-parse --show-toplevel) || exit 0
+cd "$racine" || exit 0
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "[pre-commit] node introuvable : contrôles sautés" >&2
+  exit 0
+fi
+
+if [ -f scripts/check-suivi.js ]; then
+  node scripts/check-suivi.js --hook || true
+fi
+
+if [ -f scripts/check-rules.mjs ]; then
+  node scripts/check-rules.mjs || {
+    echo "[pre-commit] commit refusé : règle métier violée (voir ci-dessus, .claude/rules/regles-metier.md)" >&2
+    exit 1
+  }
+fi
+
+# if [ -f scripts/check-ownership.mjs ]; then
+#   node scripts/check-ownership.mjs --staged || exit 1
+# fi
+
+exit 0

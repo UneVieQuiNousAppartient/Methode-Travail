@@ -38,8 +38,9 @@ Tu n'écris **aucun autre fichier** (ni code, ni configuration, ni suivi).
 7. Questions ouvertes pour Camille.
 
 **`APP-FLOW.md`** :
-- Inventaire des écrans/routes (existantes vs nouvelles — vérifie `src/app/`
-  par Glob avant d'affirmer qu'une route existe).
+- Inventaire des écrans/routes (existantes vs nouvelles — vérifie le dossier
+  « Routes publiques » de la Fiche projet par Glob, *exemple Next.js* :
+  `src/app/`, avant d'affirmer qu'une route existe).
 - Parcours principaux en listes numérotées ou diagramme texte
   (écran → action → écran), avec états vide / chargement / erreur.
 - Points de capture de données et d'appel IA, signalés.
