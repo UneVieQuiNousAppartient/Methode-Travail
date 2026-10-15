@@ -1,0 +1,44 @@
+# Exemple — CI économe en minutes GitHub Actions (extrait de VieSolution, 15 oct. 2026).
+# À fusionner dans le workflow CI du projet : le job « changes » saute build/tests
+# quand une PR ne touche que docs/, .claude/ ou des *.md à la racine.
+# Chaque job coûteux ajoute : needs: changes + if: needs.changes.outputs.code == 'true'
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - name: Checkout
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Détecter un changement de code
+        id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          # Trois points : seulement ce que la PR change depuis l'ancêtre commun
+          # (pas les commits arrivés sur la base entre-temps).
+          files=$(git diff --name-only "$BASE...$HEAD")
+          echo "$files"
+          if echo "$files" | grep -qvE '^(docs/|\.claude/|[^/]+\.md$)'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # … commandes de vérification du projet

@@ -1,0 +1,108 @@
+---
+name: livrer
+description: Rituel de fin de chantier — vérifications, qa-agent, mise à jour du suivi, puis proposition de mise en ligne
+when_to_use: Un chantier est terminé et Camille veut le clore proprement, ou avant toute mise en production
+user-invocable: true
+allowed-tools: Read, Edit, Bash, Grep, Agent
+disallowed-tools: []
+model: opus
+effort: high
+---
+
+# Livrer
+
+Ferme un chantier dans les règles. Existe parce que les trois dernières étapes —
+`qa-agent`, mise à jour du suivi, mise en ligne — sont exactement celles qu'on
+saute quand le code « a l'air fini ». C'est ce qui a produit une semaine de
+travail non commité, et un suivi qui annonçait une date vieille de neuf jours.
+
+## Étapes, dans l'ordre, sans en sauter
+
+### 1. Les contrôles que le CI exécutera de toute façon
+
+```bash
+npm run typecheck
+npm run lint
+npx vitest run
+```
+
+Un seul rouge arrête tout. Ne jamais annoncer « c'est livré » avec un test qui
+échoue — le dire et s'arrêter là.
+
+### 2. Vérification dans le navigateur, si le changement est visible
+
+Si le chantier touche une page, un composant ou une route : démarrer le serveur
+de dev, ouvrir les écrans concernés, cliquer les parcours modifiés, vérifier la
+console et les logs. Contrôler aussi la vue mobile 375 px — la règle
+mobile-first du §2.0 du suivi s'applique à chaque livraison.
+
+Ne jamais demander à Camille de vérifier à sa place ce qui peut être vérifié ici.
+
+### 3. `qa-agent` — obligatoire, jamais optionnel
+
+C'est la règle de `.claude/rules/agent-workflow.md` (étape 5). Appel `Agent`
+avec **`model: "opus"`** (jamais d'héritage du modèle de la session — voir
+`.claude/rules/budget-jetons.md`). Lui déléguer un
+regard indépendant sur le diff : `git diff` complet, ce que le chantier
+prétendait faire, et la question « est-ce que ça le fait vraiment ? ».
+
+Deux précautions apprises le 13 août :
+- lui dire explicitement que **le plan est approuvé et qu'il exécute** — sinon il
+  s'arrête pour demander une validation à quelqu'un qui ne l'entendra pas ;
+- **repasser ses conclusions soi-même**. Un agent peut s'arrêter avant la fin de
+  ses vérifications sans le signaler.
+
+### 4. Mise à jour de `SUIVI-TACHES.md` et de `docs/ETAT-ACTUEL.md`
+
+**Résumé du diff d'abord** (`git diff --stat` + 5 lignes en français : ce qui
+change pour Camille ou le visiteur) — il sert à l'entrée du suivi, au message
+de commit et au compte rendu.
+
+`docs/ETAT-ACTUEL.md` (≤ 40 lignes) : retirer le chantier livré ou le passer
+à l'étape suivante, mettre à jour les PR ouvertes, les décisions qui attendent
+Camille et la prochaine entrée libre du suivi. **On remplace, on n'empile pas.**
+
+Ne jamais lire `SUIVI-TACHES.md` en entier : `grep -n "^## " SUIVI-TACHES.md
+| tail` pour trouver la dernière entrée, puis lecture ciblée.
+
+Selon `.claude/rules/suivi-taches.md` : nouvelle section au format existant
+(contexte, ce qui a été fait, vérification technique, **« Non fait dans ce
+round »**), en-tête « Dernière mise à jour » rafraîchi, et statuts des tâches
+déjà listées corrigés si le chantier les fait avancer.
+
+La rubrique « Non fait » n'est pas décorative : c'est elle qui empêche la
+prochaine session de croire un chantier terminé alors qu'il ne l'est pas.
+
+```bash
+node scripts/check-suivi.js; echo "code=$?"
+```
+
+### 5. Commit
+
+Un commit par lot cohérent, message en français (`type(portée): résumé`),
+après `qa-agent` si 2 fichiers ou plus (verrou de `agent-workflow.md`).
+Pousser la branche de travail et ouvrir/mettre à jour la PR (brouillon) ;
+**ne rien fusionner**.
+
+### 6. Proposer la mise en ligne — sans la faire
+
+Résumer ce qui part, puis **demander**. Ne jamais pousser sans accord explicite
+de Camille, même quand tout est vert.
+
+```bash
+git status --short
+git diff --stat
+```
+
+S'ils existent dans le projet (VieSolution : oui), les proposer plutôt qu'une commande git brute ; sinon, commit et PR habituels :
+`push-staging.bat` pour `staging`, `push-prod.bat` pour `main` (avec
+confirmation). Les deux passent par `scripts/push-common.bat`, qui refait les
+vérifications et contrôle la fraîcheur du suivi.
+
+## Compte rendu attendu
+
+Ce qui a été livré, ce qui a été vérifié **et comment**, ce qui reste ouvert,
+et le **coût réel** : somme des usages rapportés par les agents + estimation de
+la session principale, comparé au « Coût estimé » du plan.
+Si une étape a été sautée, le dire explicitement plutôt que de laisser croire
+qu'elle a eu lieu.

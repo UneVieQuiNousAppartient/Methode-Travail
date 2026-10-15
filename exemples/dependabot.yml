@@ -1,0 +1,41 @@
+version: 2
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 3
+    # Une seule PR par semaine pour toutes les mises à jour mineures et
+    # correctifs (15 oct. 2026) : 8 PR séparées relançaient chacune toute la
+    # CI et ont contribué à épuiser le quota de minutes Actions. Les
+    # correctifs de sécurité urgents restent des PR à part.
+    groups:
+      npm-mineures:
+        applies-to: version-updates
+        update-types: ['minor', 'patch']
+    labels:
+      - 'dependencies'
+      - 'security'
+    # N'ouvre pas de PR pour les sauts de version majeure (ex. i18next
+    # 25→26, TypeScript 5→7) — ces bumps cassent presque toujours quelque
+    # chose et exigent une vraie revue de migration, pas un merge auto.
+    # Les correctifs de sécurité passent quand même (ils restent souvent
+    # dans la même version majeure ; s'ils exigent un majeur, l'alerte
+    # Dependabot Security à part continue de le signaler séparément).
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+  # Met aussi à jour les versions d'actions (ex. actions/checkout@v4) —
+  # sans ça, les workflows eux-mêmes peuvent tourner avec des actions
+  # obsolètes/vulnérables indéfiniment.
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'monthly'
+    groups:
+      actions:
+        patterns: ['*']
+    labels:
+      - 'ci'
+      - 'dependencies'
+
