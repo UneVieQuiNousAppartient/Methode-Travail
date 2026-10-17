@@ -5,6 +5,16 @@ Version courante : fichier `VERSION`. Chaque projet note la version reçue dans 
 Numérotation : majeure = changement qui demande de refaire l'installation ; mineure = ajout ;
 correctif = précision de texte.
 
+## 1.2.1 — 17 oct. 2026 — Guide d'un chantier mené par des agents en relais (retour de Vie Solution Web)
+
+Documentation seulement, `modele/` inchangé.
+- **`GUIDE-CHANTIER-AGENTS.md`** : déroulé d'un chantier `product-manager` → `ux-agent` → `qa-agent` →
+  révision unique, avec les coûts réels (0,9 M pour 1 M estimé), la façon dont les agents se parlent (l'agent
+  principal est le seul relais ; livrables en fichiers dans `docs/projets/<slug>/` ; `SendMessage` pour
+  reprendre un agent avec son contexte), la recette à coller dans une demande, les pièges rencontrés.
+- **`exemples/prompts-chantier-agents.md`** : les trois prompts et le message de révision, tels qu'envoyés.
+- README : section « Leçons de Vie Solution Web » et ligne du tableau.
+
 ## 1.2.0 — 15 oct. 2026 — Erreurs connues, tester d'abord, livraison sûre (apports de Ben's)
 
 Généralisé depuis Les Jus Naturels Ben's (React, Supabase, paiement en ligne) : ses skills
