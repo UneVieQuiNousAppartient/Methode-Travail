@@ -33,6 +33,7 @@ règles, agents et skills doivent donc vivre dans le `.claude/` de chaque dépô
 | 13 skills | `.claude/skills/` | `nouveau-projet`, `livrer`, `point-projet`, `qa-feature`, `tester-dabord`, `nouvelle-page`, `audit-seo`, `deploiement`, `incident`, `client-onboarding`, `diagnostic-ai`, `email-automation`, `recommendation-engine` |
 | Tester d'abord | skill `tester-dabord` | Règle de calcul critique (argent, quantités, accès, dates) en fonction pure + test écrit avant ou avec le code ; test de parité client ↔ serveur |
 | Gabarits | `CLAUDE.md`, `docs/ETAT-ACTUEL.md`, `docs/ERREURS-CONNUES.md`, `docs/projets/_modele/BRIEF.md`, `.github/PULL_REQUEST_TEMPLATE.md` | Points de départ à remplir |
+| Chantier à plusieurs agents | `GUIDE-CHANTIER-AGENTS.md` + `exemples/prompts-chantier-agents.md` | Déroulé type BRIEF → PRD → code → QA → révision unique, coûts réels, prompts à coller |
 | Exemples | `exemples/` (hors `modele/`) | CI qui saute build et tests sur les PR de documentation ; CI de préproduction avec tests de fumée sur l'URL déployée ; description de PR obligatoire ; gitleaks ; `CODEOWNERS` ; Dependabot groupé ; `check-ownership.mjs` |
 
 ### Plusieurs agents sur un même dépôt : `exemples/check-ownership.mjs`
@@ -165,6 +166,25 @@ que le modèle n'écrivait pas ; elles sont reprises dans la 1.2.0.
   pas seulement poussée → `livrer`.
 - **La CI se protège elle-même** : délais, annulation des exécutions dépassées, tests de fumée sur le site
   déployé, secrets et fichiers sensibles refusés → `exemples/`, `check-secrets-suivis.mjs`.
+
+## Leçons de Vie Solution Web (17 oct. 2026) — un chantier mené par trois agents qui se relaient
+
+Premier chantier complet en « relais » (`product-manager` → `ux-agent` → `qa-agent` → révision unique) sur le
+site vitrine ; déroulé, coûts réels et prompts dans **`GUIDE-CHANTIER-AGENTS.md`** et
+`exemples/prompts-chantier-agents.md`.
+- **Le PRD porte les textes, pas des intentions** : l'`ux-agent` colle au lieu d'inventer, et le `qa-agent`
+  peut prouver chaque critère (38/38 vérifiés dans le code).
+- **Chaîne courte pour un chantier de contenu** (BRIEF → PRD + APP-FLOW → code) : 115 k pour le PRD, 0,9 M
+  pour tout le chantier, contre ≈ 1 M pour la seule chaîne de documents complète.
+- **L'agent principal est le seul relais** entre agents : il relit chaque rapport dans le code, trie les
+  réserves (celles de l'agent / celles de Camille), et renvoie **une** révision à l'agent repris avec son
+  contexte (`SendMessage`), jamais relancé à froid.
+- **La Vérification doit être verte avant de lancer les agents** (ici 5 erreurs ESLint préexistantes, corrigées
+  et consignées en `ERREURS-CONNUES.md` E01), sinon le QA ne distingue plus le neuf de l'ancien.
+- **Les agents de `.claude/agents/` ne se chargent qu'à la session suivante** : dans la session d'installation,
+  `general-purpose` en Opus avec la fiche de l'agent collée dans le prompt donne le même résultat.
+- **Deux `next` en parallèle corrompent `.next/`** : un seul agent lance `build`/`dev` ; les autres font
+  typecheck et lint.
 
 ## Tenir le modèle à jour
 
