@@ -22,6 +22,11 @@ fonctions, pour ne pas recommencer à zéro ». Généralisé depuis KHI Educ (N
   l'authentification et le schéma, installation dans l'ordre (accès, tests, admin, options, métier),
   vérification de chaque brique (tests cassés une fois, simulation, `securite`), retour au kit.
 - **README** : ligne « Kit CRM » dans le tableau, leçons de KHI Educ (suite).
+- **Vérifié** : 3 fichiers de tests de la brique auth au vert (87 contrôles) dans un dossier temporaire, et en
+  échec quand on retire la vérification du compte dans `deviceAccepts` ; revue `qa` sans point bloquant.
+- **Pas encore vérifié** : les 4 migrations n'ont jamais été jouées telles quelles sur une base neuve (leurs
+  politiques sont contrôlées par le texte) ; le harnais de simulation n'a tourné que sur une page d'essai, pas
+  sur un admin construit avec le kit — à faire au premier projet qui l'utilise.
 
 ## 1.2.0 — 15 oct. 2026 — Erreurs connues, tester d'abord, livraison sûre (apports de Ben's)
 
