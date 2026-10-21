@@ -1,0 +1,113 @@
+# Catalogue du kit CRM
+
+Tout ce qu'un CRM, un admin ou un espace client a déjà coûté à construire sur **KHI Educ** (oct. 2026 :
+Next.js 16 App Router en JavaScript, Supabase — Postgres, Auth, RLS —, Vercel, Resend, Tailwind), rangé par
+famille. Chaque brique dit **ce qu'elle fait**, **où elle est**, **ce qu'elle demande** et **ce qu'il reste à
+adapter**. Mode d'emploi : `README.md` de ce dossier, puis la skill `nouveau-crm` du modèle.
+
+**Colonne « Kit »** :
+- **code** — fournie dans ce dossier, nettoyée, prête à copier (`auth/`, `admin/`, `tests/`), avec son `BRIQUE.md` ;
+- **fiche** — décrite ici seulement : la logique et les pièges sont connus, le code est à réécrire pour le
+  nouveau projet (trop lié au métier de KHI : séances, tuteurs, diagnostics).
+
+Les chemins `KHI : …` désignent les fichiers d'origine dans le dépôt KHI Educ, pour qui y a accès.
+
+---
+
+## 1. Authentification et accès
+
+| Brique | Ce qu'elle fait | Kit | Demande |
+|---|---|---|---|
+| **Liste blanche de l'équipe** | Seules les adresses de `admin_allowlist` entrent dans l'admin, avec un rôle (`admin`, `gestionnaire`, `employe`) ; les autres comptes sont déconnectés. `getAdminFromRequest` (Bearer Supabase) ; `GET /v1/auth/role` sert au routage après connexion. KHI : `lib/authServer.js`, `app/v1/auth/role` | code (`auth/`) | table `admin_allowlist` ; `SUPABASE_SERVICE_ROLE_KEY` |
+| **Rôles par route** | Matrice méthode + chemin → rôle minimal ; refus en 401 (pas connecté) ou 403 (`{ detail, required_role }`) via `deny(request)` ; l'écran reçoit `permissions` de `GET /v1/admin/me` et **ne recalcule rien**. KHI : `lib/roles.js` | code | à adapter : la matrice |
+| **Espaces par rôle** | `getUserWithRole(request, "parent" \| "tutor")` : rôle exact lu dans `profiles`, double authentification exigée pour ces rôles. KHI : `lib/authServer.js` | code | table `profiles (id, role)` |
+| **Double authentification (TOTP)** | Supabase gère l'application d'authentification (code QR, `challenge`/`verify`) ; le serveur décide qui doit être en `aal2` (`mfaState`) : tout membre inscrit, tous si `ADMIN_MFA_REQUIRED=1`, toujours pour les rôles listés. `/v1/admin/me` répond toujours, avec `mfa.code`, pour que l'écran affiche le code ou l'inscription. Deux verrous pour les espaces : la base (politiques **restrictives** « aal2 ») et les routes serveur. KHI : `lib/mfa.js`, migration `20260930c` | code | `ADMIN_MFA_REQUIRED` |
+| **« Se souvenir de cet appareil 30 jours »** | Après un code juste, jeton aléatoire de 32 octets (empreinte SHA-256 seule en base) dans un témoin `httpOnly; Secure; SameSite=Strict; Path=/v1/auth/mfa` ; à la connexion suivante, la session Supabase en cours (`session_id`) devient « session de confiance ». Accepté par le serveur ET par la base (`public.mfa_session_ok()`), jamais à la place d'une inscription (facteur vérifié exigé des deux côtés). Liste « Appareils de confiance », Oublier / Oublier tous. KHI : `lib/mfaTrust.js`, `app/v1/auth/mfa/*`, migration `20261021_mfa_trusted_devices` | code | tables `mfa_trusted_devices`, `mfa_trusted_sessions` |
+| **Journal d'activité** | `audit({ actor, action, target_type, target_id, meta }, request)` : qui a fait quoi, avec IP, marque des appels faits par un agent ; catalogue fermé des actions (un test échoue si une action n'y est pas). KHI : `lib/audit.js` | code | table `admin_audit_log` |
+| **Clés d'API** | Clés préfixées (ex. `crm_…`) hachées (jamais stockées en clair), rôle par clé, révocation, dernière utilisation notée au plus une fois par minute ; même `getAdminFromRequest`. KHI : `lib/apiKeys.js` | code | table `api_keys` |
+| **Invitation d'un membre** | Ajouter un membre crée son compte et envoie le lien (inscriptions libres fermées : sinon une adresse de la liste blanche reste « dormante » et prenable). KHI : `lib/teamInvite.js` | fiche | Resend |
+| **Comptes créés par l'équipe** | Jamais de compte client pour une adresse de l'équipe ; lien d'accès à usage unique montré une seule fois si le courriel ne part pas ; jamais de mot de passe renvoyé. KHI : `lib/accounts.js`, `lib/passwords.js` | fiche | — |
+| **Jetons pour Claude (MCP OAuth)** | Brancher Claude sur le CRM : jeton d'accès 1 h, jeton de renouvellement 30 jours en rotation, rôle de la clé d'API choisie. KHI : `lib/mcpOAuth.js`, `mcp/` | fiche | — |
+| **Limiteur de débit** | Table + fonction SQL (`rate_limit_hit`) : en serverless, la mémoire d'une instance ne limite rien. KHI : `lib/rateLimit.js` | fiche | table `rate_limits` |
+| **Anti-robots** | Cloudflare Turnstile sur les formulaires publics et la connexion par mot de passe. KHI : `lib/turnstile.js` | fiche | clés Turnstile |
+
+## 2. Admin (écrans)
+
+| Brique | Ce qu'elle fait | Kit |
+|---|---|---|
+| **Coquille** | Barre latérale à sections configurables + barre du haut **de même hauteur** (traits alignés), nom de la page en haut, menu mobile, cloche de notifications, bouton Assistant | code (`admin/`) |
+| **`apiFetch`** | Ajoute le Bearer Supabase ; 403 de rôle → **un seul** message (identifiant = texte) ; 403 `mfa_required` / `mfa_enrollment_required` → écran du code ou de l'inscription | code |
+| **Cartes de confirmation** | `confirmAction(texte, { title, confirmLabel, tone: "danger", typeToConfirm: "supprimer" })` — jamais `window.confirm` ; mot à taper pour une suppression définitive | code |
+| **Fiche en page** | `useDetailRoute("lead")` : la fiche remplace la liste (liste gardée montée, filtres et page conservés), a sa propre adresse (`?lead=<id>`), retour du navigateur, « Ouvrir dans un nouvel onglet » | code |
+| **Tableaux, chiffres, graphiques** | Tableau triable avec pagination, cartes de chiffres clés, barres et courbes (Recharts), d'après 21st.dev | code |
+| **Rafraîchissement après modification** | `refreshAfterChange` : après tout ajout, modification ou suppression (fiche, liste, Kanban, actions groupées, assistant), listes + vues dérivées relues **une fois**, **sans écran de chargement** (`{ quiet: true }`) | code (exemple) + `admin/PATTERNS.md` |
+| **Écrans de double authentification** | Code (avec case « 30 jours » cochée), inscription obligatoire (code QR, clé à copier), Paramètres › Sécurité (appareils, appareils de confiance, « Entrer le code maintenant ») ; aussi pour les espaces clients (`SpaceMfaGate`) | code |
+| **Assistant avec approbations** | Conversation avec l'IA qui propose des actions ; chaque écriture passe par une carte « Approuver / Refuser » ; réponse perdue = « peut-être exécutée », jamais « en attente ». KHI : `components/admin/assistant/`, `app/v1/admin/assistant`, `lib/agent/` | fiche |
+| **Notifications** | Cloche, non lues, lien qui ouvre la fiche sans recharger. KHI : `components/admin/NotificationsBell.jsx`, `lib/notifications.js` | fiche |
+| **Paramètres** | Sous-onglets : entreprise, horaires, modèles de courriels, automatisations, équipe, clés d'API, webhooks, journal, vie privée, sécurité. KHI : `components/admin/tabs/SettingsTab.jsx` | fiche |
+
+## 3. Fonctions CRM
+
+| Brique | Ce qu'elle fait | Kit | KHI |
+|---|---|---|---|
+| **Leads** | Étapes (pipeline), note, ville, étiquettes, responsable (notification au responsable), prochaine action, archivage (masqué, jamais effacé), suppression définitive (admin, mot à taper), actions groupées (≤ 200), vues enregistrées | fiche | `app/v1/admin/leads`, `lib/leadFilters.js`, `lib/archivage.js` |
+| **Fil d'activité** | Tout ce qui arrive à un lead passe par un seul point (note, appel, courriel, changement d'étape, relance) ; `last_contact_at` = dernier contact **humain** seulement | fiche | `lib/leadActivity.js` |
+| **Tâches** | Échéance, responsable, faite / supprimée (journalisée), tâches en retard dans « Aujourd'hui » | fiche | `app/v1/admin/tasks` |
+| **Kanban** | Glisser-déposer entre étapes, remis en place si le serveur refuse | fiche | `components/admin/tabs/LeadsTab.jsx` |
+| **Import / export CSV** | Séparateur détecté, BOM, `;` pour Excel français ; en-têtes en français ou en clé ; attestation de consentement à l'import | fiche | `lib/csv.js`, `lib/leadCsv.js` |
+| **Score** | Règles transparentes 0-100 (pas d'IA) | fiche | `lib/scoring.js` |
+| **« Aujourd'hui » (centre d'actions)** | Sections : à rappeler, sans réponse, tâches en retard, rendez-vous du jour… avec action suggérée ; calcul à la demande | fiche | `lib/actionCenter.js` |
+| **Analyse du jour par IA** | Priorités du jour + canal à amplifier, une fois par jour, repli déterministe sans IA ; tâches en retard toujours fraîches (leads archivés exclus) | fiche | `lib/recommendations.js` |
+| **Réponse prête (speed-to-lead)** | Dès qu'une demande arrive : brouillon de courriel avec vrais créneaux, résumé pour l'appel, tâche, et un lien signé « Envoyer tel quel » | fiche | `lib/speedToLead.js` |
+| **IA sur la fiche** | Résumé + action suggérée (en cache tant que rien ne bouge), brouillon de courriel, articles à recommander ; l'IA ne voit que le dossier | fiche | `lib/leadAi.js` |
+| **Statistiques** | Jours civils dans le fuseau du client (une demande de 21 h compte ce jour-là), période, prévision par semaine | fiche | `lib/analytics.js`, `lib/adminOverview.js` |
+| **Webhooks sortants** | `emitEvent(event, data)` vers Zapier / Make / n8n, signé, reprises par le tick, rétention 30 jours | fiche | `lib/webhooks.js` |
+| **Réservations et agenda** | Créneaux libres dans le fuseau du client (changements d'heure), événement Google Agenda + Meet, rattrapage si l'agenda a échoué, OAuth Google avec `state` signé | fiche | `lib/booking.js`, `lib/calendarSync.js`, `lib/googleOAuth.js` |
+
+## 4. Courriels et automatisations
+
+| Brique | Ce qu'elle fait | Kit | KHI |
+|---|---|---|---|
+| **Envoi** | Resend côté serveur ; sans clé, aucun envoi et `null` (les appelants le gèrent) | fiche | `lib/email.js` |
+| **Modèles éditables** | Corps en texte simple (« # Titre », paragraphes, variables `{prénom}`), défauts dans le code, surcharges en base, « Rétablir par défaut » | fiche | `lib/emailTemplates.js` |
+| **Moteur de relances (tick)** | Un seul point d'entrée horaire (Vercel Cron avec `CRON_SECRET`, ou boucle en processus) ; verrou `job_locks` contre deux ticks simultanés ; règles = candidats + condition + action, réglables dans l'admin | fiche | `lib/tick.js`, `lib/automations.js` |
+| **Loi anti-pourriel (LCAP)** | Consentement tacite (6 mois demande, 2 ans client), désabonnement par lien signé HMAC sans table, en-têtes `List-Unsubscribe`, désabonnement appliqué à toutes les fiches de la même adresse ; **testé** | fiche | `lib/lcap.js`, `lib/unsubscribe.js` |
+| **Courriels entrants** | Réception par Resend (webhook), rattachement au lead | fiche | `lib/inboundEmail.js` |
+
+## 5. Contenu public
+
+| Brique | Ce qu'elle fait | Kit | KHI |
+|---|---|---|---|
+| **Articles gérés dans l'admin** | La base fait foi dès qu'elle répond (un article dépublié disparaît partout : liste, page, sitemap, accueil, clavardage) ; le contenu du code ne sert qu'en secours ; `revalidatePath` après chaque changement | fiche | `lib/articles.js` |
+| **Paramètres publics** | Défauts dans le code, surcharges en base, clés publiques exposées sans authentification (coordonnées, horaires) — jamais une coordonnée écrite en dur | fiche | `lib/settings.js` |
+| **URL du site** | Une seule source (`NEXT_PUBLIC_SITE_URL`), repli sur l'URL de production Vercel | fiche | `lib/siteUrl.js` |
+| **Mesure d'audience** | Rien n'est envoyé avant le consentement ; retrait = effacement | fiche | `lib/visitors.js`, `lib/utm.js` |
+
+## 6. Vie privée (Loi 25)
+
+| Brique | Ce qu'elle fait | Kit | KHI |
+|---|---|---|---|
+| **Export et effacement** | Toutes les données d'une personne (fiches, activité, courriels — y compris ceux reçus sans fiche), journalisé | fiche | `lib/privacy.js`, `app/v1/admin/privacy` |
+| **Consentement horodaté** | Texte de consentement versionné, version enregistrée avec chaque demande | fiche | `app/v1/leads` |
+
+## 7. IA
+
+| Brique | Ce qu'elle fait | Kit | KHI |
+|---|---|---|---|
+| **Registre des tâches IA** | `aiText / aiJson / aiStream` ; une tâche = un prompt dans `lib/ai/prompts/` + une ligne du registre (fournisseur et modèle réglables par variable d'environnement) ; jamais un SDK appelé depuis une route | fiche | `lib/ai/` |
+
+## 8. Tests et contrôles
+
+| Brique | Ce qu'elle fait | Kit |
+|---|---|---|
+| **Faux Supabase en mémoire** | `createFakeSupabase(tables, { fail })` : select / insert / update / upsert / delete, filtres, `maybeSingle`, erreurs simulées (ex. `23505`), lectures et écritures notées | code (`tests/`) |
+| **Loaders** | Alias `@/` et remplacement de `@/lib/supabaseAdmin` par le faux, pour tester les routes de bout en bout sans réseau | code |
+| **Harnais de simulation de l'admin réel** | Build avec un Supabase fictif, Playwright intercepte Auth et `/v1/**` (faux serveur à état, échecs 500 / refus 403 à la demande, journal des appels) : chaque action jouée en échec, en refus puis en réussite | code |
+| **Contrôle après déploiement (smoke)** | Pages publiques, routes, en-têtes, et contrôles admin avec une clé d'API. KHI : `scripts/smoke.mjs` | fiche |
+| **Contrat d'API** | Toute route de `app/v1` doit être dans `docs/API.md`. KHI : `scripts/check-api-doc.mjs` | fiche |
+
+---
+
+**À ne pas reprendre tel quel** : les textes, prix, coordonnées, témoignages et politiques de KHI (règle
+« rien que le client n'a pas dit ») ; les écrans publics (propres à chaque client) ; les séances, tuteurs et
+candidatures (métier de KHI, à repenser pour chaque projet).

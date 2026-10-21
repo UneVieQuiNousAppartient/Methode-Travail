@@ -1,0 +1,16 @@
+{
+  "name": "kit-crm",
+  "private": true,
+  "type": "module",
+  "description": "Kit CRM (methode-travail) : briques auth et tests. Copier auth/ et tests/ à la racine d'un projet Next.js, puis npm test.",
+  "scripts": {
+    "test": "node scripts/run-unit-tests.mjs",
+    "sim:demarrage": "node simulation/s0-demarrage.mjs",
+    "sim:double-auth": "node simulation/s7-double-auth.mjs"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "2.118.0",
+    "next": "16.4.2",
+    "playwright-core": "1.64.1"
+  }
+}
