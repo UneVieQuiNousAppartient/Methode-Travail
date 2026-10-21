@@ -5,6 +5,24 @@ Version courante : fichier `VERSION`. Chaque projet note la version reçue dans 
 Numérotation : majeure = changement qui demande de refaire l'installation ; mineure = ajout ;
 correctif = précision de texte.
 
+## 1.3.0 — 21 oct. 2026 — Kit CRM (apports de KHI Educ)
+
+Demande de Camille : « mettre cette façon de faire les CRM dans la méthode, surtout l'admin, les auths, les
+fonctions, pour ne pas recommencer à zéro ». Généralisé depuis KHI Educ (Next.js, Supabase, Vercel).
+- **`kits/crm/`** (nouveau, hors `modele/` : on y choisit des briques, on ne le copie pas en bloc) :
+  - `CATALOGUE.md` — toutes les briques, par famille (accès, admin, fonctions CRM, courriels et
+    automatisations, contenu, vie privée, IA, tests), « code » ou « fiche » ;
+  - `LECONS.md` — 24 leçons (base, authentification, écrans, contenu, livraison), cause prouvée et parade ;
+  - `auth/` — code : liste blanche, rôles par route, espaces par rôle, double authentification,
+    « se souvenir de cet appareil 30 jours » (serveur + base), journal, clés d'API ; migrations et tests ;
+  - `admin/` — code : coquille, `apiFetch`, confirmations, fiche en page, tableaux et graphiques, écrans de
+    double authentification, squelette d'écran ; `PATTERNS.md` (règles d'écran) ;
+  - `tests/` — code : faux Supabase en mémoire, loaders, lanceur, harnais de simulation de l'admin réel.
+- **Skill `nouveau-crm`** (nouvelle, 14 skills) : choisir les briques avec l'utilisatrice, accord avant
+  l'authentification et le schéma, installation dans l'ordre (accès, tests, admin, options, métier),
+  vérification de chaque brique (tests cassés une fois, simulation, `securite`), retour au kit.
+- **README** : ligne « Kit CRM » dans le tableau, leçons de KHI Educ (suite).
+
 ## 1.2.0 — 15 oct. 2026 — Erreurs connues, tester d'abord, livraison sûre (apports de Ben's)
 
 Généralisé depuis Les Jus Naturels Ben's (React, Supabase, paiement en ligne) : ses skills
