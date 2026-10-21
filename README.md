@@ -30,9 +30,10 @@ règles, agents et skills doivent donc vivre dans le `.claude/` de chaque dépô
 | Chaîne de documents | skill `nouveau-projet` + 5 agents de conception | BRIEF → PRD + APP-FLOW → SCHEMA → TRD → UI-GUIDE (+ maquettes Claude Design) → IMPLEMENTATION-PLAN → revue `qa-agent` |
 | Agents de code | `orchestrateur`, `data-agent`, `ux-agent`, `ai-agent`, `qa-agent`, `prompt-agent` | Socle commun ; une section « Propre au projet » à remplir |
 | Agents de revue | `securite`, `revue-integration` | Lecture seule, Opus, verdict binaire ; ne croient jamais le résumé de l'auteur |
-| 13 skills | `.claude/skills/` | `nouveau-projet`, `livrer`, `point-projet`, `qa-feature`, `tester-dabord`, `nouvelle-page`, `audit-seo`, `deploiement`, `incident`, `client-onboarding`, `diagnostic-ai`, `email-automation`, `recommendation-engine` |
+| 14 skills | `.claude/skills/` | `nouveau-projet`, `nouveau-crm`, `livrer`, `point-projet`, `qa-feature`, `tester-dabord`, `nouvelle-page`, `audit-seo`, `deploiement`, `incident`, `client-onboarding`, `diagnostic-ai`, `email-automation`, `recommendation-engine` |
 | Tester d'abord | skill `tester-dabord` | Règle de calcul critique (argent, quantités, accès, dates) en fonction pure + test écrit avant ou avec le code ; test de parité client ↔ serveur |
 | Gabarits | `CLAUDE.md`, `docs/ETAT-ACTUEL.md`, `docs/ERREURS-CONNUES.md`, `docs/projets/_modele/BRIEF.md`, `.github/PULL_REQUEST_TEMPLATE.md` | Points de départ à remplir |
+| **Kit CRM** | `kits/crm/` (hors `modele/`, ne se copie pas en bloc) + skill `nouveau-crm` | Démarrer un CRM, un admin ou un espace client sans repartir de zéro : catalogue de toutes les briques de KHI Educ, code nettoyé (accès et rôles, double authentification et « se souvenir de cet appareil 30 jours », admin, tests et simulation de l'admin réel), règles d'écran, leçons |
 | Chantier à plusieurs agents | `GUIDE-CHANTIER-AGENTS.md` + `exemples/prompts-chantier-agents.md` | Déroulé type BRIEF → PRD → code → QA → révision unique, coûts réels, prompts à coller |
 | Exemples | `exemples/` (hors `modele/`) | CI qui saute build et tests sur les PR de documentation ; CI de préproduction avec tests de fumée sur l'URL déployée ; description de PR obligatoire ; gitleaks ; `CODEOWNERS` ; Dependabot groupé ; `check-ownership.mjs` |
 
@@ -150,6 +151,20 @@ n'avait pas ; ils sont repris dans la 1.1.0.
 - **Les revues ne croient pas l'auteur** : `revue-integration` et `securite` vérifient chaque affirmation
   dans le code, verdict binaire.
 - **Les skills copiées gardent leur origine** (`SOURCE.md`) et se remplacent, elles ne se modifient pas.
+
+## Leçons de KHIEDUC, suite : le kit CRM (21 oct. 2026)
+
+Six semaines de CRM sur KHI Educ (admin refait, double authentification, simulation de toutes les actions) ont
+donné un kit réutilisable, `kits/crm/` (version 1.3.0) ; ses leçons sont dans `kits/crm/LECONS.md`. Les plus
+générales :
+- **Simuler l'admin réel avant de dire « ça marche »** : un faux serveur derrière le vrai écran a trouvé le
+  double chargement au démarrage, des actions sans message et une sélection groupée qui touchait des lignes
+  invisibles — aucun test unitaire ne les voyait.
+- **Après une modification, tout ce qui en dépend se relit**, une seule fois et sans écran de chargement.
+- **Une migration de contenu se fait en deux temps** (brouillon avant le déploiement, publication après) pour
+  n'avoir ni page vide ni doublon.
+- **La confiance ne remplace jamais une inscription** : une revue de sécurité a trouvé, avant toute
+  utilisation, une session de confiance qui survivait au retrait du dernier facteur côté base.
 
 ## Leçons de Ben's (15 oct. 2026)
 
