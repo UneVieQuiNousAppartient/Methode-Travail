@@ -5,6 +5,16 @@ Version courante : fichier `VERSION`. Chaque projet note la version reçue dans 
 Numérotation : majeure = changement qui demande de refaire l'installation ; mineure = ajout ;
 correctif = précision de texte.
 
+## 1.3.1 — 21 oct. 2026 — Guide d'un chantier mené par des agents en relais (retour de Vie Solution Web)
+
+Rédigé le 17 oct. (proposé en 1.2.1), publié après le kit CRM 1.3.0. Documentation seulement, `modele/` inchangé.
+- **`GUIDE-CHANTIER-AGENTS.md`** : déroulé d'un chantier `product-manager` → `ux-agent` → `qa-agent` →
+  révision unique, avec les coûts réels (0,9 M pour 1 M estimé), la façon dont les agents se parlent (l'agent
+  principal est le seul relais ; livrables en fichiers dans `docs/projets/<slug>/` ; `SendMessage` pour
+  reprendre un agent avec son contexte), la recette à coller dans une demande, les pièges rencontrés.
+- **`exemples/prompts-chantier-agents.md`** : les trois prompts et le message de révision, tels qu'envoyés.
+- README : section « Leçons de Vie Solution Web » et ligne du tableau.
+
 ## 1.3.0 — 21 oct. 2026 — Kit CRM (apports de KHI Educ)
 
 Demande de Camille : « mettre cette façon de faire les CRM dans la méthode, surtout l'admin, les auths, les
