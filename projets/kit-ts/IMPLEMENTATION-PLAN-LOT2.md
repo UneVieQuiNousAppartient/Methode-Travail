@@ -536,3 +536,8 @@ CSF, KHI, WEB ; application des migrations ; installation dans un projet client.
 - Non vérifié : absence de `mfa_session_ok()` dans la migration CSF `20261109` (aucun `create function` trouvé ; le kit
   JS 0004 sert de source) ; que `qrDataUrl` n'ajoute aucune dépendance.
 - Commits d'origine non relevés ; coûts estimés, pas mesurés.
+
+## Décisions de Camille (30 oct. 2026)
+- **Découpage** : lot 2a d'abord (P0-P2 : accès refusés par défaut, point d'entrée de l'équipe, double vérification + appareils de confiance + codes de secours, `qa-agent`, `securite`), plafond ≈ 710 k ; lot 2b (P3-P6) seulement après son OK.
+- **Rôles par défaut** : `admin` > `gestionnaire` > `employe`, paramétrables, refus par défaut.
+- **Codes de secours** : 10 codes à usage unique ; un code accepté ouvre une session de confiance d'une heure qui oblige à réinscrire un facteur ; conception revue par `securite` avant « prêt ».
