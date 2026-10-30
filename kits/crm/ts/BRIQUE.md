@@ -110,7 +110,9 @@ Lot 2, **ordre obligatoire 0101 → 0111** (0103 à 0111 après les deux du lot 
 
 **Préalable Supabase (tableau de bord, avant d'ouvrir l'admin)** : Authentication › inscriptions publiques
 **désactivées** et « Confirm email » **activé**. Sinon une adresse de la liste blanche encore sans compte peut être
-prise par n'importe qui qui s'inscrit avec elle.
+prise par n'importe qui qui s'inscrit avec elle. Régler aussi Authentication › **Rate Limits** (connexions,
+vérifications de jetons et de codes MFA) : Supabase Auth est joignable en direct avec la clé publique, donc le verrou
+du kit ne voit que les essais qui passent par les routes du projet (voir L7).
 
 ## Dépendances npm
 
@@ -165,7 +167,22 @@ que ses fiches ») reste dans chaque route (propre au métier, non fourni).
 - **L3** : toute route admin commence par `getTeamMember(request, …)` ; refus → `deny(...)`.
 - **L4-L5** : `MFA_ALWAYS_ROLES` à fixer (ex. `admin`) ; 0104 reproduite sur chaque table lue par le navigateur.
 - **L6** : poser `MFA_BACKUP_SECRET` avant de proposer les codes ; montrer les 10 codes une seule fois.
-- **L7** : brancher le verrou sur la connexion par mot de passe et sur chaque saisie de code.
+- **L7** : brancher le verrou sur la connexion par mot de passe (`attemptAccountLogin`) et sur chaque saisie de
+  code : route du code à 6 chiffres = `getMfaSession` (double vérification non exigée), `mfaAccountLock` **avant**
+  `challengeAndVerify`, `recordMfaCodeFailure` sur un code faux ; garder aussi le compteur par IP du lot 1.
+  Limites connues :
+  - **seuls les codes de secours sont vraiment verrouillés par le kit** (fonction SQL réservée au serveur). Le
+    mot de passe et le code à 6 chiffres peuvent être essayés directement auprès de Supabase Auth : les Rate
+    Limits de Supabase (préalable ci-dessus) sont la seule borne de ce chemin ;
+  - le verrou lit l'état, vérifie, puis compte : il borne les essais successifs, pas une rafale envoyée en
+    parallèle (N requêtes simultanées = N essais avant que le verrou tombe) ;
+  - base en panne : lecture « compte libre » sauf verrou connu de l'instance ; les échecs se comptent en
+    mémoire, par instance (même règle que l'anti-abus du lot 1) ;
+  - qui connaît un courriel peut bloquer ce compte (1 h pour la connexion, 15 min pour les codes) : revers
+    accepté d'un verrou par compte.
+- **L11** : la garde de l'archivage juge par fonction de premier niveau ; elle ne voit ni un nom de table passé
+  par une constante, ni un appel coupé sur plusieurs lignes, et un seul filtre fait passer deux lectures d'une
+  même fonction. L'archivage masque, il n'autorise rien : relire les listes à la main en plus de la garde.
 - **L8** : ajouter ses actions au catalogue `AUDIT_ACTIONS` (un test échoue sinon).
 - **L9** : `recordSubjectAccess` à chaque ouverture de fiche ; purge périodique depuis une route cron.
 - **L10** : lister ses tables dans `ERASABLE_SOURCES` ; `MANUAL_ERASURE_STEPS` = ce qui s'efface à la main
@@ -174,7 +191,8 @@ que ses fiches ») reste dans chaque route (propre au métier, non fourni).
 - **L12** : `enregistrerBattement` à la fin du tick ; `VARIABLES_ATTENDUES` à compléter.
 
 **Règles pour les routes que le projet écrira** (aucune n'est fournie) :
-- **(a) Page « code de secours »** : `mfaAccountLock` **avant** tout ; puis `redeemBackupCode` avec
+- **(a) Page « code de secours »** : membre obtenu par `getMfaSession` ; compteur par IP du lot 1 ;
+  `mfaAccountLock` **avant** tout ; puis `redeemBackupCode` avec
   `member.userId`, `member.sessionId` et l'`accessToken` venant du **même** appel à `getTeamMember` ; puis
   `recordBackupCodeAttempt`. **Ne pas mettre en ligne cette page sans le verrou.**
 - **(b) Régénérer ou effacer les codes** : seulement si `backupCodesManageAllowed(member.mfa)`.
