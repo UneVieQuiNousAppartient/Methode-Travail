@@ -1,10 +1,22 @@
-// Kit CRM TS (methode-travail) — origine : écrit pour le kit (la source n'a pas de test propre à mfa-route.ts ; cas tirés de son contrat : garde des routes MFA, 403 codé, 429 réécrit).
+// Kit CRM TS (methode-travail) — origine : écrit pour le kit (la source n'a pas de test propre à mfa-route.ts ; cas tirés de son contrat : garde des routes MFA, 403 codé, 429 réécrit, verrou de compte des codes).
 import { NextResponse } from 'next/server';
 import { describe, expect, it } from 'vitest';
 import { TOKEN_MODE_REFUSED_MESSAGE } from '@/lib/admin/token-mode';
 import { createFakeSupabase, fakeUuid } from '@/test-support/fake-supabase';
 import { MFA_MESSAGES } from './mfa';
-import { MFA_THROTTLED_MESSAGE, TOKEN_MODE_MESSAGE, getMfaSession, mfaRefusal, mfaThrottled } from './mfa-route';
+import { type AccountLockClient, resetAccountLocksForTests } from '@/lib/api/account-lock';
+import {
+  MFA_ACCOUNT_LOCKED_MESSAGE,
+  MFA_THROTTLED_MESSAGE,
+  TOKEN_MODE_MESSAGE,
+  getMfaSession,
+  mfaAccountLock,
+  mfaLockKey,
+  mfaRefusal,
+  mfaThrottled,
+  recordBackupCodeAttempt,
+  recordMfaCodeFailure,
+} from './mfa-route';
 
 const USER = { id: fakeUuid(1), email: 'employe@exemple.test', factors: [{ id: 'f1', status: 'verified' as const }] };
 const jwt = (claims: Record<string, unknown>) => `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
@@ -54,5 +66,54 @@ describe('réponses', () => {
 
   it('message « mode jeton » : celui de token-mode.ts', () => {
     expect(TOKEN_MODE_MESSAGE).toBe(TOKEN_MODE_REFUSED_MESSAGE);
+  });
+});
+
+// Verrou de compte des routes du code (account-lock.ts) : codes à 6 chiffres et codes de secours sur un compteur.
+describe('verrou de compte des codes', () => {
+  const member = { email: USER.email };
+  const lockedFake = () => {
+    const rows: Array<Record<string, unknown>> = [];
+    const f = createFakeSupabase(
+      { rate_limit_hits: rows },
+      {
+        rpc: {
+          hit_rate_limit: (args, self) => {
+            const table = self.tables.rate_limit_hits;
+            let row = table.find((r) => r.key === args.p_key);
+            if (!row) table.push((row = { key: args.p_key, count: 0, blocked_until: null }));
+            row.count = (row.count as number) + 1;
+            const blocked = (row.count as number) > (args.p_limit as number);
+            if (blocked) row.blocked_until = new Date(Date.now() + (args.p_block_seconds as number) * 1000).toISOString();
+            return { data: { blocked, retry_after: blocked ? (args.p_block_seconds as number) : 0 }, error: null };
+          },
+        },
+      },
+    );
+    return { fake: f, client: f.client as unknown as AccountLockClient };
+  };
+
+  it('4 codes faux tolérés, le 5e → 429 no-store ; ensuite le compte est refusé avant toute vérification', async () => {
+    resetAccountLocksForTests();
+    const { client, fake: f } = lockedFake();
+    for (let i = 0; i < 4; i += 1) expect(await recordMfaCodeFailure(member, { client })).toBeNull();
+    const fifth = await recordMfaCodeFailure(member, { client });
+    expect(fifth?.status).toBe(429);
+    expect(fifth?.headers.get('cache-control')).toBe('no-store');
+    expect(fifth?.headers.get('retry-after')).toBe('900');
+    expect(await fifth?.json()).toEqual({ ok: false, error: MFA_ACCOUNT_LOCKED_MESSAGE });
+    resetAccountLocksForTests();
+    expect((await mfaAccountLock(member, { client }))?.status).toBe(429);
+    expect(JSON.stringify(f.tables)).not.toContain('exemple.test');
+  });
+
+  it('codes de secours `invalid` sur le même compteur ; même clé quelle que soit la casse du courriel', async () => {
+    resetAccountLocksForTests();
+    const { client } = lockedFake();
+    expect(mfaLockKey({ email: ' Employe@Exemple.TEST' })).toBe(mfaLockKey(member));
+    await recordMfaCodeFailure(member, { client });
+    for (let i = 0; i < 3; i += 1) expect(await recordBackupCodeAttempt(member, { ok: false, reason: 'invalid' }, { client })).toBeNull();
+    expect((await recordBackupCodeAttempt({ email: 'EMPLOYE@exemple.test' }, { ok: false, reason: 'invalid' }, { client }))?.status).toBe(429);
+    expect(await mfaAccountLock({ email: 'autre@exemple.test' }, { client })).toBeNull();
   });
 });

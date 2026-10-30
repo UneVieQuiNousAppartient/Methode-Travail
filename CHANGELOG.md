@@ -5,6 +5,29 @@ Version courante : fichier `VERSION`. Chaque projet note la version reçue dans 
 Numérotation : majeure = changement qui demande de refaire l'installation ; mineure = ajout ;
 correctif = précision de texte.
 
+## 1.5.0 — 2026-10-30 — Kit CRM TS, lot 2
+
+Socle de l'admin d'équipe en TypeScript strict, sans écrans ; plan : `projets/kit-ts/IMPLEMENTATION-PLAN-LOT2.md`.
+Chaque fichier garde sa ligne d'origine.
+- **`kits/crm/ts/`** : faux Supabase pour Vitest (L0) ; rôles `admin` > `gestionnaire` > `employe` paramétrables
+  et matrice d'accès à refus par défaut (L1) ; mot de passe partagé interdit en ligne (L2) ; point d'entrée de
+  l'équipe (L3) ; double vérification TOTP de Supabase (L4) ; appareils de confiance 30 jours (L5) ; codes de
+  secours (L6, 10 codes à usage unique, session d'une heure qui oblige à réinscrire un facteur) ; verrou de compte
+  (L7) ; journal des actions (L8) ; journal d'accès Loi 25 (L9) ; accès, effacement avec empreinte et conservation
+  limitée (L10) ; archivage (L11) ; santé + battement du tick (L12) ; migrations `0103` à `0111` ; variables du
+  lot 2 dans `.env.exemple`.
+- **Documents** : `ts/BRIQUE.md` (lots 1 et 2, ordre des migrations, préalable « inscriptions fermées », règles
+  pour les routes que le projet écrira, pièges, écarts connus, fiche « admin d'un seul propriétaire ») ;
+  `CATALOGUE.md` (colonne TS, nouvelles lignes) ; README du kit (ordre d'installation TS) ; skill `nouveau-crm`
+  (socle admin TS, question des rôles au démarrage, `securite` avant la mise en ligne d'un admin, règle E15).
+- Noms des projets sources retirés des documents du kit et de la skill : la provenance reste sur la ligne
+  d'origine de chaque fichier.
+- **Vérifié** : `npm run verify` (tsc strict + Vitest) dans une copie `mktemp -d`, 719 tests au vert ; règles
+  cassées une fois (mutations vues en échec) ; `qa-agent` ; `securite` sur le lot 2a, puis corrections.
+- **Pas encore vérifié** : aucun SQL `0103`-`0111` joué sur une base neuve ; aucune brique installée dans un projet
+  réel ; codes de secours = conception neuve (pas de source en production) ; le verrou de compte est à brancher
+  par le projet (routes non fournies).
+
 ## 1.4.0 — 30 oct. 2026 — Kit CRM TS, lot 1 (site public, formulaires, courriels)
 
 Demande de Camille : « prendre les meilleurs entre VieSolution, Web et KHI », lot 1. Chaque brique est copiée de
