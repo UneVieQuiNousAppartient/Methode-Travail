@@ -27,6 +27,11 @@ create table if not exists public.team_allowlist (
     created_at timestamptz not null default now()
 );
 
+-- Compte lié : fixé à la première connexion CONFIRMÉE (src/lib/auth/team-session.ts), comparé ensuite. Une adresse
+-- reprise par un autre compte (inscription publique, fournisseur OAuth) est alors refusée. Remettre à null pour
+-- relier un membre dont le compte a été recréé (décision d'un administrateur).
+alter table public.team_allowlist add column if not exists user_id uuid unique references auth.users (id) on delete set null;
+
 -- Adresses en minuscules et non vides.
 alter table public.team_allowlist drop constraint if exists team_allowlist_email_normalized;
 alter table public.team_allowlist add constraint team_allowlist_email_normalized
@@ -41,6 +46,9 @@ alter table public.team_allowlist enable row level security;
 -- Défense en profondeur : RLS sans politique ferme déjà la table ; aucun droit non plus (refus explicite).
 revoke all on public.team_allowlist from anon, authenticated;
 
+-- PRÉALABLE (Supabase › Authentication › Sign In / Providers) : inscriptions publiques DÉSACTIVÉES (« Allow new
+-- users to sign up » à off : membres invités seulement) et « Confirm email » ACTIVÉ. Le point d'entrée exige en plus
+-- un courriel confirmé (`email_confirmed_at`) et lie la ligne au compte.
 -- [à adapter] Premier administrateur (adresse en minuscules), puis gérer l'équipe depuis l'admin :
 -- insert into public.team_allowlist (email, role, name) values ('admin@exemple.test', 'admin', 'Administrateur')
 -- on conflict (email) do nothing;

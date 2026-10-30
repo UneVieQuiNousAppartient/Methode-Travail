@@ -177,8 +177,9 @@ export const ipOf = clientIp;
 /** Cible : jamais une adresse courriel (une personne se désigne par l'identifiant de sa fiche ou une empreinte). */
 const cleanTarget = (value: string | null | undefined, max: number) => {
   if (!value) return null;
-  const text = String(value).slice(0, max);
-  return EMAIL_IN_TEXT.test(text) ? REDACTED : text;
+  // Chercher l'adresse AVANT de couper : coupée, elle pourrait perdre son point et passer (« x@exemple »).
+  const full = String(value);
+  return EMAIL_IN_TEXT.test(full) ? REDACTED : full.slice(0, max);
 };
 
 /** Ligne à insérer (fonction pure), ou null si l'action est hors catalogue ou l'acteur invalide. */

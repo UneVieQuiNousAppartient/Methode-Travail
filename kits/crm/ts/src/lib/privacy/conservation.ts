@@ -1,4 +1,4 @@
-// Kit CRM TS (methode-travail) — origine : Vie Solution Web, src/lib/crm/conservation.ts, commit 59e389a (2026-10-30) ; généralisé : durée de conservation fixée par un client → RETENTION_MONTHS obligatoire (aucun défaut silencieux), secret d'empreinte PRIVACY_HASH_SECRET avec repli UNSUBSCRIBE_SECRET, champs de date de la fiche en paramètre [à adapter].
+// Kit CRM TS (methode-travail) — origine : Vie Solution Web, src/lib/crm/conservation.ts, commit 59e389a (2026-10-30) ; généralisé : durée de conservation fixée par un client → RETENTION_MONTHS obligatoire (aucun défaut silencieux), secret d'empreinte PRIVACY_HASH_SECRET seul (aucun repli : une clé, un usage), champs de date de la fiche en paramètre [à adapter].
 //
 // Conservation limitée et empreinte d'effacement (Loi 25) — règles pures. Rien ne s'efface tout seul :
 // l'administration liste les fiches sans activité depuis RETENTION_MONTHS mois, une personne vérifie et
@@ -63,17 +63,14 @@ export const aSupprimer = (l: Dates, maintenant: Date, mois: number): boolean =>
 };
 
 /**
- * Secret de l'empreinte : PRIVACY_HASH_SECRET (32 caractères ou plus), sinon UNSUBSCRIBE_SECRET (même exigence,
- * celui des liens de désabonnement du lot 1). PRIVACY_HASH_SECRET posé mais trop court → '' (pas de repli : la
- * configuration voulue est fautive). '' → l'effacement est refusé.
+ * Secret de l'empreinte : PRIVACY_HASH_SECRET, 32 caractères ou plus. Aucun repli (pas même UNSUBSCRIBE_SECRET :
+ * une clé ne sert qu'à un usage). Absent ou trop court → '' → l'effacement est refusé.
  * Changer ce secret empêche de reconnaître les empreintes déjà écrites : chaque empreinte garde l'identifiant
  * de sa clé (`hashKeyId`).
  */
 export function privacyHashSecret(env: Env = process.env): string {
   const own = env.PRIVACY_HASH_SECRET ?? '';
-  if (own) return own.length >= MIN_HASH_SECRET ? own : '';
-  const fallback = env.UNSUBSCRIBE_SECRET ?? '';
-  return fallback.length >= MIN_HASH_SECRET ? fallback : '';
+  return own.length >= MIN_HASH_SECRET ? own : '';
 }
 
 /** Identifiant court de la clé (8 caractères), jamais la clé : savoir quelles empreintes ne se reconnaissent plus. */

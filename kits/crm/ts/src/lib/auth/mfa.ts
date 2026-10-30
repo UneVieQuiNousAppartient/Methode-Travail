@@ -136,6 +136,7 @@ export function mfaState(
     satisfied,
     code,
     recovery: Boolean(recovery),
+    hasBackupCodes: Boolean(hasBackupCodes),
   };
 }
 

@@ -16,7 +16,7 @@ const UNVERIFIED: FakeAuthFactor[] = [{ id: 'f2', status: 'unverified', factor_t
 const jwt = (claims: Record<string, unknown>) => `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
 
 interface Setup {
-  users?: Array<{ id: string; email: string; factors?: FakeAuthFactor[] }>;
+  users?: Array<{ id: string; email: string; email_confirmed_at?: string | null; factors?: FakeAuthFactor[] }>;
   /** Jetons acceptés par getUser. */
   sessions?: Array<{ token: string; userId: string }>;
   allowlist?: Row[];
@@ -148,14 +148,71 @@ describe('rôle', () => {
     expect(refusal).not.toHaveProperty('code');
   });
 
-  it('minRole : rôle minimal de la route au lieu de la matrice', async () => {
+  it('minRole s’AJOUTE à la matrice : le plus haut des deux est exigé', async () => {
     const token = tokenFor(EMPLOYE.id, 'aal1');
     const fake = setup({ users: [EMPLOYE], sessions: [{ token, userId: EMPLOYE.id }] });
+    // Plus haut que la matrice (accueil = employe) : minRole l'emporte.
     expect(refusalOf(await getTeamMember(request('GET', '/admin', token), { db: fake.client, minRole: 'gestionnaire', now: NOW }))).toMatchObject({
       status: 403,
       requiredRole: 'gestionnaire',
     });
-    expect((await getTeamMember(request('GET', '/api/admin/inconnu', token), { db: fake.client, minRole: 'employe', now: NOW })).ok).toBe(true);
+    // Plus bas que la matrice (route inconnue = admin) : minRole n'ouvre RIEN.
+    expect(refusalOf(await getTeamMember(request('GET', '/api/admin/inconnu', token), { db: fake.client, minRole: 'employe', now: NOW }))).toMatchObject({
+      status: 403,
+      requiredRole: 'admin',
+    });
+    expect((await getTeamMember(request('GET', '/admin', token), { db: fake.client, minRole: 'employe', now: NOW })).ok).toBe(true);
+  });
+});
+
+describe('liste blanche liée au compte, courriel confirmé', () => {
+  it('courriel jamais confirmé → 401, la liste blanche n’est même pas lue', async () => {
+    const token = tokenFor(ADMIN.id, 'aal2');
+    const fake = setup({ users: [{ ...ADMIN, email_confirmed_at: null } as never], sessions: [{ token, userId: ADMIN.id }] });
+    expect(refusalOf(await getTeamMember(request('GET', '/admin', token), { db: fake.client, now: NOW }))).toEqual({ status: 401 });
+    expect(fake.queries.some((query) => query.table === 'team_allowlist')).toBe(false);
+  });
+
+  it('première connexion confirmée : la ligne est liée au compte', async () => {
+    const token = tokenFor(EMPLOYE.id, 'aal1');
+    const fake = setup({ users: [EMPLOYE], sessions: [{ token, userId: EMPLOYE.id }] });
+    expect((await getTeamMember(request('GET', '/admin', token), { db: fake.client, now: NOW })).ok).toBe(true);
+    expect(fake.tables.team_allowlist.find((row) => row.email === EMPLOYE.email)?.user_id).toBe(EMPLOYE.id);
+  });
+
+  it('un AUTRE compte avec la même adresse (compte recréé, inscription publique) → 401, la liaison ne bouge pas', async () => {
+    const intrus = { id: fakeUuid(9), email: EMPLOYE.email };
+    const token = tokenFor(intrus.id, 'aal1');
+    const fake = setup({
+      users: [intrus],
+      sessions: [{ token, userId: intrus.id }],
+      allowlist: [{ email: EMPLOYE.email, role: 'admin', user_id: EMPLOYE.id }],
+    });
+    expect(refusalOf(await getTeamMember(request('GET', '/admin', token), { db: fake.client, now: NOW }))).toEqual({ status: 401 });
+    expect(fake.tables.team_allowlist[0].user_id).toBe(EMPLOYE.id);
+  });
+
+  it('liaison impossible à écrire → 401 (échec fermé)', async () => {
+    const token = tokenFor(EMPLOYE.id, 'aal1');
+    const fake = setup({ users: [EMPLOYE], sessions: [{ token, userId: EMPLOYE.id }] });
+    const from = fake.client.from.bind(fake.client);
+    fake.client.from = ((table: string) => {
+      const builder = from(table) as unknown as { update: (values: unknown) => unknown };
+      if (table === 'team_allowlist') builder.update = () => ({ eq: () => ({ is: () => ({ select: async () => ({ data: null, error: { message: 'x' } }) }) }) });
+      return builder;
+    }) as never;
+    expect(refusalOf(await getTeamMember(request('GET', '/admin', token), { db: fake.client, now: NOW }))).toEqual({ status: 401 });
+  });
+
+  it('état exposé : hasBackupCodes pour la route d’inscription', async () => {
+    const token = tokenFor(EMPLOYE.id, 'aal1');
+    const fake = setup({
+      users: [EMPLOYE],
+      sessions: [{ token, userId: EMPLOYE.id }],
+      tables: { mfa_backup_codes: [{ user_id: EMPLOYE.id, code_hash: 'a'.repeat(64), used_at: null }] },
+    });
+    const result = await getTeamMember(request('GET', '/admin/verification', token), { db: fake.client, now: NOW });
+    expect(result.ok && result.member.mfa).toMatchObject({ enrolled: false, hasBackupCodes: true, code: 'mfa_enrollment_required' });
   });
 });
 

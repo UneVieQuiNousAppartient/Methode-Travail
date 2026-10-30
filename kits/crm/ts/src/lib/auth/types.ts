@@ -29,6 +29,12 @@ export interface MfaState {
    * réinscrire un facteur (l'écran et la route d'inscription la lisent). Absent = false.
    */
   recovery?: boolean;
+  /**
+   * Le membre a des codes de secours en base (utilisés ou non) : il a déjà été inscrit. Lu par le point d'entrée
+   * quand le membre n'a plus de facteur vérifié (false sinon). La route d'inscription le passe à
+   * `enrollmentAllowedFor` : sans lui, le mot de passe seul remplacerait le facteur. Absent = false.
+   */
+  hasBackupCodes?: boolean;
 }
 
 /**

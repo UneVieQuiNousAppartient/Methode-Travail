@@ -1,4 +1,4 @@
-// Kit CRM TS (methode-travail) — origine : Vie Solution Web, tests/conservation.test.mjs, commit 59e389a (2026-10-30) ; généralisé : node:test → Vitest, durée passée explicitement (plus de défaut) ; ajoutés : RETENTION_MONTHS absent ou invalide, secret d'empreinte et son repli.
+// Kit CRM TS (methode-travail) — origine : Vie Solution Web, tests/conservation.test.mjs, commit 59e389a (2026-10-30) ; généralisé : node:test → Vitest, durée passée explicitement (plus de défaut) ; ajoutés : RETENTION_MONTHS absent ou invalide, secret d'empreinte (sans repli).
 import { describe, expect, it } from 'vitest';
 import {
   aConserverJusquau,
@@ -67,11 +67,11 @@ describe('empreinte du courriel', () => {
     expect(hashKeyId('')).toBe('');
   });
 
-  it('secret : PRIVACY_HASH_SECRET ≥ 32, sinon UNSUBSCRIBE_SECRET ≥ 32, sinon rien ; PRIVACY_HASH_SECRET trop court → pas de repli', () => {
+  it('secret : PRIVACY_HASH_SECRET ≥ 32 seulement ; jamais de repli sur UNSUBSCRIBE_SECRET', () => {
     const a = 'a'.repeat(32);
     const b = 'b'.repeat(32);
     expect(privacyHashSecret({ PRIVACY_HASH_SECRET: a, UNSUBSCRIBE_SECRET: b })).toBe(a);
-    expect(privacyHashSecret({ UNSUBSCRIBE_SECRET: b })).toBe(b);
+    expect(privacyHashSecret({ UNSUBSCRIBE_SECRET: b })).toBe('');
     expect(privacyHashSecret({ PRIVACY_HASH_SECRET: 'court', UNSUBSCRIBE_SECRET: b })).toBe('');
     expect(privacyHashSecret({ UNSUBSCRIBE_SECRET: 'court' })).toBe('');
     expect(privacyHashSecret({})).toBe('');

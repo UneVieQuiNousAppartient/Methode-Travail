@@ -39,6 +39,8 @@ export interface FakeAuthFactor {
 export interface FakeAuthUser {
   id: string;
   email: string;
+  /** Défaut : une date (courriel confirmé). `null` = courriel jamais confirmé. */
+  email_confirmed_at?: string | null;
   factors?: FakeAuthFactor[];
 }
 
@@ -526,9 +528,14 @@ export function createFakeSupabase(tables: Record<string, Row[]> = {}, options: 
       const session = typeof token === 'string' && token ? sessions.find((entry) => entry.token === token) : undefined;
       const user = session ? findUser(session.userId) : null;
       if (!user) return { data: { user: null }, error: authError('invalid JWT') };
-      return { data: { user: structuredClone(user) }, error: null };
+      return { data: { user: { email_confirmed_at: '2026-01-01T00:00:00Z', ...structuredClone(user) } }, error: null };
     },
     admin: {
+      signOut: async (jwt: string, scope: 'global' | 'local' | 'others' = 'global') => {
+        const session = sessions.find((entry) => entry.token === jwt);
+        authCalls.push({ method: `admin.signOut:${scope}`, userId: session?.userId });
+        return session ? { data: null, error: null } : { data: null, error: authError('invalid JWT') };
+      },
       getUserById: async (userId: string) => {
         authCalls.push({ method: 'admin.getUserById', userId });
         const user = findUser(userId);

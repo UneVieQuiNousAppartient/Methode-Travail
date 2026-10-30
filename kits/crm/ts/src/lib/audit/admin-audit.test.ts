@@ -64,6 +64,9 @@ describe('auditRow', () => {
 
   it('cible : une adresse courriel n’est jamais écrite', () => {
     expect(auditRow({ actor: MEMBER, action: 'record.delete', target_type: 'lead', target_id: 'marie@exemple.test' })?.target_id).toBe('[retiré]');
+    // Adresse placée pour que la coupe à 100 caractères lui retire son point : cherchée AVANT la coupe.
+    const long = `${'x'.repeat(90)} marie@exemple.test`;
+    expect(auditRow({ actor: MEMBER, action: 'record.delete', target_type: 'lead', target_id: long })?.target_id).toBe('[retiré]');
   });
 });
 

@@ -35,7 +35,7 @@ export interface TeamSessionOptions {
   db: Db | null;
   allowlistTable?: string;
   matrix?: AccessMatrix<TeamRole>;
-  /** Rôle minimal exigé par la route ; absent → la matrice décide (méthode + chemin). */
+  /** Rôle minimal exigé par la route, EN PLUS de la matrice (le plus haut des deux est exigé). */
   minRole?: TeamRole;
   /** false : l'état MFA est calculé mais ne bloque pas (routes de la double vérification, `/me`). */
   enforceMfa?: boolean;
@@ -73,6 +73,8 @@ export async function verifyAccessToken(
     const { data, error } = await db.auth.getUser(token);
     const user = data?.user;
     if (error || !user?.id) return null;
+    // Courriel non confirmé : l'adresse n'est pas prouvée (inscription publique ou fournisseur qui ne vérifie pas).
+    if (!user.email_confirmed_at) return null;
     return {
       user: { id: user.id, email: typeof user.email === 'string' ? user.email : null, factors: (user.factors ?? []) as AuthFactor[] },
       aal: sessionAal(token),
@@ -84,12 +86,26 @@ export async function verifyAccessToken(
 }
 
 /** Ligne de la liste blanche pour ce courriel (déjà en minuscules) ; erreur ou absence → null (refus). */
-async function readAllowlist(db: Db, table: string, email: string): Promise<{ email?: unknown; role?: unknown } | null> {
+async function readAllowlist(db: Db, table: string, email: string): Promise<{ email?: unknown; role?: unknown; user_id?: unknown } | null> {
   try {
-    const { data, error } = await db.from(table).select('email, role').eq('email', email).maybeSingle();
-    return error ? null : ((data ?? null) as { email?: unknown; role?: unknown } | null);
+    const { data, error } = await db.from(table).select('email, role, user_id').eq('email', email).maybeSingle();
+    return error ? null : ((data ?? null) as { email?: unknown; role?: unknown; user_id?: unknown } | null);
   } catch {
     return null;
+  }
+}
+
+/**
+ * Lie la ligne au compte à la première connexion confirmée ; ensuite, seul ce compte passe. Écriture conditionnelle
+ * (`user_id is null`) : deux comptes qui se connectent en même temps → un seul est lié. Échec → refus.
+ */
+async function bindAllowlist(db: Db, table: string, email: string, linked: unknown, userId: string): Promise<boolean> {
+  if (linked !== null && linked !== undefined) return linked === userId;
+  try {
+    const { data, error } = await db.from(table).update({ user_id: userId }).eq('email', email).is('user_id', null).select('user_id');
+    return !error && Array.isArray(data) && data.length === 1 && data[0]?.user_id === userId;
+  } catch {
+    return false;
   }
 }
 
@@ -136,11 +152,15 @@ export async function getTeamMember(request: Request, options: TeamSessionOption
   if (!email) return refuse({ status: 401 });
   const row = await readAllowlist(db, allowlistTable, email);
   if (!row || row.email !== email || !matrix.roles.isRole(row.role)) return refuse({ status: 401 });
+  if (!(await bindAllowlist(db, allowlistTable, email, row.user_id, user.id))) return refuse({ status: 401 });
   const role = row.role;
 
   // 5. Rôle AVANT la double vérification : un rôle insuffisant n'est jamais invité à saisir un code.
   const url = new URL(request.url);
-  const requiredRole = minRole ?? matrix.requiredRole(request.method, url.pathname);
+  // `minRole` s'AJOUTE à la matrice (le plus haut des deux) : une route ne peut pas ouvrir ce que la matrice réserve.
+  const fromMatrix = matrix.requiredRole(request.method, url.pathname);
+  const requiredRole =
+    fromMatrix === null ? null : minRole && matrix.roles.rankOf(minRole) > matrix.roles.rankOf(fromMatrix) ? minRole : fromMatrix;
   if (requiredRole === null || !matrix.roles.hasRole(role, requiredRole)) {
     return refuse({ status: 403, requiredRole, role });
   }

@@ -1,4 +1,4 @@
-// Kit CRM TS (methode-travail) — origine : Vie Solution Web, src/lib/crm/effacement.ts (empreinte d'abord, bilan, empreintes effacées), commit 59e389a (2026-10-30) + KHI Educ, app/v1/admin/privacy/route.js (adresse de l'équipe refusée, courriel sans fiche, registre des demandes d'accès), commit 1a02685 (2026-10-30) ; généralisé : tables préfixées du projet → ERASABLE_SOURCES, acteur = AuditActor (jamais un nom écrit en dur ni un courriel), secret PRIVACY_HASH_SECRET (repli UNSUBSCRIBE_SECRET), refus avec message clair au lieu d'exceptions, liste « à effacer à la main » [à adapter].
+// Kit CRM TS (methode-travail) — origine : Vie Solution Web, src/lib/crm/effacement.ts (empreinte d'abord, bilan, empreintes effacées), commit 59e389a (2026-10-30) + KHI Educ, app/v1/admin/privacy/route.js (adresse de l'équipe refusée, courriel sans fiche, registre des demandes d'accès), commit 1a02685 (2026-10-30) ; généralisé : tables préfixées du projet → ERASABLE_SOURCES, acteur = AuditActor (jamais un nom écrit en dur ni un courriel), secret PRIVACY_HASH_SECRET (sans repli), refus avec message clair au lieu d'exceptions, liste « à effacer à la main » [à adapter].
 //
 // Demandes Loi 25 d'une personne identifiée par son courriel : accès (export) et effacement.
 //
@@ -60,7 +60,7 @@ export const PRIVACY_MESSAGES: Record<PrivacyRefusal, string> = {
   invalid_email: 'Courriel invalide.',
   invalid_actor: 'Membre de l’équipe non reconnu : reconnectez-vous.',
   secret_missing:
-    'Effacement impossible : aucun secret d’empreinte configuré. Ajoutez PRIVACY_HASH_SECRET (32 caractères ou plus) dans les variables d’environnement, ou à défaut UNSUBSCRIBE_SECRET, puis relancez.',
+    'Effacement impossible : aucun secret d’empreinte configuré. Ajoutez PRIVACY_HASH_SECRET (32 caractères ou plus) dans les variables d’environnement, puis relancez.',
   team_member: 'Cette adresse est celle d’un membre de l’équipe : retirez d’abord son accès, puis relancez.',
   team_unreadable: 'La liste de l’équipe est illisible : rien n’a été effacé. Réessayez plus tard.',
   hash_failed: 'Rien n’a été effacé : l’empreinte de l’adresse n’a pas pu être enregistrée. Réessayez.',
@@ -118,6 +118,8 @@ export async function erasePerson(db: SupabaseClient, rawEmail: string, options:
   if (!isValidPersonEmail(email)) return refuse('invalid_email');
   const secret = privacyHashSecret(options.env ?? process.env);
   if (!secret) return refuse('secret_missing');
+  const actor = actorKey(options.actor);
+  if (!actor) return refuse('invalid_actor');
   let checked: Awaited<ReturnType<typeof precheck>>;
   try {
     checked = await precheck(db, email, options);
@@ -130,7 +132,6 @@ export async function erasePerson(db: SupabaseClient, rawEmail: string, options:
   // 2. L'empreinte D'ABORD. Une seule ligne par adresse (index unique, migration 0108) : une relance la réutilise.
   const hash = empreinteCourriel(email, secret);
   const key = hashKeyId(secret);
-  const actor = actorKey(options.actor) as string;
   let requestId: string;
   try {
     const { data: existing, error: readError } = await db.from(PRIVACY_REQUESTS_TABLE).select('id').eq('kind', 'erase').eq('email_hash', hash).limit(1);

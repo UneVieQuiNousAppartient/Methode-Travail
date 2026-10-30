@@ -8,7 +8,8 @@
 //   32 caractères ou plus, aucun repli) est gardée en base ;
 // - un code juste est consommé de façon atomique en base (`consume_mfa_backup_code` : une seule instruction
 //   `update … where used_at is null`) : deux requêtes simultanées avec le même code → une seule réussit ;
-// - effet : les facteurs du membre sont retirés, ses appareils de confiance révoqués, et la session courante reçoit
+// - effet : les facteurs du membre sont retirés, ses appareils de confiance révoqués, ses AUTRES sessions fermées,
+//   et la session courante reçoit
 //   une « session de récupération » (`mfa_trusted_sessions`, raison `backup_code`) d'UNE heure. Cette ligne ne
 //   satisfait JAMAIS la double vérification (ni ici, ni dans `mfa_session_ok()`) : elle autorise seulement à
 //   réinscrire un facteur. Après une heure sans réinscription, il faut un autre code ;
@@ -18,6 +19,7 @@
 // - les autres codes restent valables ; une nouvelle série efface toutes les anciennes empreintes.
 import { createHmac, randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { MfaState } from '@/lib/auth/types';
 
 export const BACKUP_CODE_COUNT = 10;
 export const BACKUP_SECRET_MIN_LENGTH = 32;
@@ -75,7 +77,8 @@ export type IssueResult = { ok: true; codes: string[] } | { ok: false; reason: '
 /**
  * Nouvelle série pour `userId` : les anciennes empreintes sont effacées et les nouvelles écrites dans la même
  * fonction SQL. Les codes en clair sont rendus UNE fois (à montrer, jamais à journaliser). La route qui l'appelle
- * exige une session dont la double vérification est satisfaite (matrice : `backup-codes` hors verrou).
+ * DOIT d'abord vérifier `backupCodesManageAllowed(member.mfa)` : session en aal2, jamais une session de confiance
+ * (un appareil volé régénérerait la série, utiliserait un code, retirerait le facteur et prendrait le compte).
  */
 export async function issueBackupCodes(db: SupabaseClient, userId: string, env: Env = process.env): Promise<IssueResult> {
   const secret = backupSecret(env);
@@ -88,7 +91,7 @@ export async function issueBackupCodes(db: SupabaseClient, userId: string, env: 
 
 /**
  * Efface toutes les empreintes du membre (il retire volontairement sa double vérification, ou il quitte l'équipe).
- * Ces lignes prouvent une inscription passée : la route qui l'appelle exige une session en aal2 (code donné), sinon
+ * Ces lignes prouvent une inscription passée : la route qui l'appelle vérifie `backupCodesManageAllowed` (aal2), sinon
  * « retirer son facteur puis ses codes » ferait tomber l'exigence de double vérification.
  */
 export async function clearBackupCodes(db: SupabaseClient, userId: string): Promise<boolean> {
@@ -106,6 +109,13 @@ export async function remainingBackupCodes(db: SupabaseClient, userId: string): 
   return error ? null : (count ?? 0);
 }
 
+/**
+ * Générer une nouvelle série ou effacer les codes : seulement un membre inscrit dont la session est en aal2 (code de
+ * l'application donné dans CETTE session). Une session de confiance (appareil retenu) ne suffit JAMAIS.
+ */
+export const backupCodesManageAllowed = (mfa: Pick<MfaState, 'enrolled' | 'aal'> | null | undefined): boolean =>
+  Boolean(mfa?.enrolled) && mfa?.aal === 'aal2';
+
 export type RedeemResult =
   | { ok: true; recoveryExpiresAt: string }
   | { ok: false; reason: 'secret_missing' | 'no_session' | 'invalid' | 'db_error' | 'incomplete' };
@@ -115,6 +125,8 @@ export interface RedeemInput {
   userId: string;
   /** `session_id` du jeton vérifié : la récupération ne vaut que pour CETTE session. */
   sessionId: string | null;
+  /** Jeton d'accès vérifié de la session : sert à fermer les AUTRES sessions du membre. */
+  accessToken: string;
   code: unknown;
   env?: Env;
   now?: Date;
@@ -153,7 +165,10 @@ export async function redeemBackupCode(db: SupabaseClient, input: RedeemInput): 
     .eq('user_id', input.userId)
     .is('revoked_at', null);
   if (revoked.error) return { ok: false, reason: 'incomplete' };
-  // 3. Ouvrir la récupération pour cette session seulement.
+  // 3. Fermer les autres sessions du membre (l'ordinateur perdu avec le téléphone garderait la sienne).
+  const signedOut = await db.auth.admin.signOut(input.accessToken, 'others');
+  if (signedOut.error) return { ok: false, reason: 'incomplete' };
+  // 4. Ouvrir la récupération pour cette session seulement.
   const recoveryExpiresAt = new Date(now.getTime() + RECOVERY_MINUTES * 60_000).toISOString();
   const opened = await db.from(TRUSTED_SESSIONS_TABLE).upsert(
     { user_id: input.userId, session_id: input.sessionId, device_id: null, reason: 'backup_code', expires_at: recoveryExpiresAt },
@@ -173,6 +188,10 @@ export async function endRecovery(db: SupabaseClient, userId: string, sessionId:
     .eq('reason', 'backup_code');
   return !error;
 }
+
+/** `enrollmentAllowed` lu directement dans l'état calculé par le point d'entrée (`member.mfa`). */
+export const enrollmentAllowedFor = (mfa: MfaState): boolean =>
+  enrollmentAllowed({ enrolled: mfa.enrolled, aal: mfa.aal, hasBackupCodes: Boolean(mfa.hasBackupCodes), recovery: Boolean(mfa.recovery) });
 
 export interface EnrollmentContext {
   /** Au moins un facteur vérifié. */

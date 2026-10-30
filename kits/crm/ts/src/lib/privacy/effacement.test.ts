@@ -129,18 +129,20 @@ describe('erasePerson — empreinte AVANT la première suppression', () => {
 
 describe('erasePerson — refus', () => {
   it('secret absent → effacement refusé avec un message clair, rien d’écrit', async () => {
-    for (const env of [{}, { PRIVACY_HASH_SECRET: 'court' }, { UNSUBSCRIBE_SECRET: 'court' }]) {
+    for (const env of [{}, { PRIVACY_HASH_SECRET: 'court' }, { UNSUBSCRIBE_SECRET: 'u'.repeat(32) }]) {
       const fake = setup();
       const result = await erasePerson(fake.client, 'marie@exemple.test', { actor: ACTOR, env });
       expect(result).toMatchObject({ ok: false, code: 'secret_missing' });
-      if (!result.ok) expect(result.message).toMatch(/PRIVACY_HASH_SECRET.*32.*UNSUBSCRIBE_SECRET/);
+      if (!result.ok) expect(result.message).toMatch(/PRIVACY_HASH_SECRET.*32/);
       expect(fake.writes).toEqual([]);
     }
   });
 
-  it('repli UNSUBSCRIBE_SECRET accepté', async () => {
+  it('aucun repli sur UNSUBSCRIBE_SECRET : rien n’est écrit ni effacé', async () => {
     const fake = setup();
-    expect(await erasePerson(fake.client, 'marie@exemple.test', { actor: ACTOR, env: { UNSUBSCRIBE_SECRET: 'u'.repeat(32) } })).toMatchObject({ ok: true });
+    const before = JSON.stringify(fake.tables);
+    expect(await erasePerson(fake.client, 'marie@exemple.test', { actor: ACTOR, env: { UNSUBSCRIBE_SECRET: 'u'.repeat(32) } })).toMatchObject({ ok: false, code: 'secret_missing' });
+    expect(JSON.stringify(fake.tables)).toBe(before);
   });
 
   it('adresse de l’équipe (liste blanche, expéditeur) jamais effacée', async () => {

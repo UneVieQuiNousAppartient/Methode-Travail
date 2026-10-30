@@ -3,11 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { createFakeSupabase, fakeUuid, type FakeOptions, type Row } from '@/test-support/fake-supabase';
 import {
   BACKUP_CODE_COUNT,
+  backupCodesManageAllowed,
   backupSecret,
   clearBackupCodes,
   CONSUME_BACKUP_CODE_RPC,
   endRecovery,
   enrollmentAllowed,
+  enrollmentAllowedFor,
   generateBackupCodes,
   hashBackupCode,
   isBackupCodeFormat,
@@ -24,6 +26,7 @@ const env = { MFA_BACKUP_SECRET: SECRET };
 const ALICE = fakeUuid(1);
 const BOB = fakeUuid(2);
 const SESSION = fakeUuid(100);
+const TOKEN = 'jeton-session-alice';
 const NOW = new Date('2026-06-01T12:00:00.000Z');
 
 /** Fonctions SQL simulées avec la même sémantique que 0109 (consommation en une seule instruction). */
@@ -64,6 +67,7 @@ function setup(codes: Record<string, string[]> = { [ALICE]: ['ABCD-EFGH', 'JKLM-
           { id: ALICE, email: 'a@exemple.test', factors: [{ id: 'fa', status: 'verified' }, { id: 'fb', status: 'unverified' }] },
           { id: BOB, email: 'b@exemple.test', factors: [{ id: 'fc', status: 'verified' }] },
         ],
+        sessions: [{ token: TOKEN, userId: ALICE }],
       },
       ...extra,
     },
@@ -143,7 +147,7 @@ describe('issueBackupCodes : nouvelle série', () => {
 describe('redeemBackupCode : usage unique et session de récupération', () => {
   it('code juste : facteurs retirés, appareils révoqués, récupération d’une heure pour CETTE session', async () => {
     const fake = setup();
-    const result = await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, code: 'abcd efgh', env, now: NOW });
+    const result = await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, accessToken: TOKEN, code: 'abcd efgh', env, now: NOW });
     expect(result).toEqual({ ok: true, recoveryExpiresAt: new Date(NOW.getTime() + RECOVERY_MINUTES * 60_000).toISOString() });
     expect((await fake.client.auth.admin.mfa.listFactors({ userId: ALICE })).data?.factors).toEqual([]);
     expect((await fake.client.auth.admin.mfa.listFactors({ userId: BOB })).data?.factors).toHaveLength(1);
@@ -156,38 +160,38 @@ describe('redeemBackupCode : usage unique et session de récupération', () => {
 
   it('second usage du même code : refusé, aucune nouvelle récupération', async () => {
     const fake = setup();
-    expect((await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, code: 'ABCD-EFGH', env, now: NOW })).ok).toBe(true);
+    expect((await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, accessToken: TOKEN, code: 'ABCD-EFGH', env, now: NOW })).ok).toBe(true);
     fake.tables.mfa_trusted_sessions = [];
-    const again = await redeemBackupCode(fake.client, { userId: ALICE, sessionId: fakeUuid(101), code: 'ABCD-EFGH', env, now: NOW });
+    const again = await redeemBackupCode(fake.client, { userId: ALICE, sessionId: fakeUuid(101), accessToken: TOKEN, code: 'ABCD-EFGH', env, now: NOW });
     expect(again).toEqual({ ok: false, reason: 'invalid' });
     expect(fake.tables.mfa_trusted_sessions).toEqual([]);
   });
 
   it('les autres codes restent valables après un usage', async () => {
     const fake = setup();
-    await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, code: 'ABCD-EFGH', env, now: NOW });
+    await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, accessToken: TOKEN, code: 'ABCD-EFGH', env, now: NOW });
     expect(await remainingBackupCodes(fake.client, ALICE)).toBe(1);
-    expect((await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, code: 'JKLM-NPQR', env, now: NOW })).ok).toBe(true);
+    expect((await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, accessToken: TOKEN, code: 'JKLM-NPQR', env, now: NOW })).ok).toBe(true);
     expect(await remainingBackupCodes(fake.client, ALICE)).toBe(0);
   });
 
   it('code d’un autre membre : refusé, rien ne bouge chez l’un ni chez l’autre', async () => {
     const fake = setup({ [ALICE]: ['ABCD-EFGH'], [BOB]: ['JKLM-NPQR'] });
-    expect(await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, code: 'JKLM-NPQR', env, now: NOW })).toEqual({ ok: false, reason: 'invalid' });
+    expect(await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, accessToken: TOKEN, code: 'JKLM-NPQR', env, now: NOW })).toEqual({ ok: false, reason: 'invalid' });
     expect(fake.tables.mfa_backup_codes.every((row) => row.used_at === null)).toBe(true);
     expect(fake.authCalls.filter((call) => call.method === 'admin.mfa.deleteFactor')).toEqual([]);
   });
 
   it('format faux : refusé SANS interroger la base ; même réponse qu’un code inconnu (aucun indice)', async () => {
     const fake = setup();
-    expect(await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, code: '123456', env })).toEqual({ ok: false, reason: 'invalid' });
+    expect(await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, accessToken: TOKEN, code: '123456', env })).toEqual({ ok: false, reason: 'invalid' });
     expect(fake.rpcCalls).toEqual([]);
-    expect(await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, code: 'ZZZZ-ZZZZ', env })).toEqual({ ok: false, reason: 'invalid' });
+    expect(await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, accessToken: TOKEN, code: 'ZZZZ-ZZZZ', env })).toEqual({ ok: false, reason: 'invalid' });
   });
 
   it('la consommation passe par la fonction SQL atomique, jamais par une lecture puis une écriture en TypeScript', async () => {
     const fake = setup();
-    await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, code: 'ABCD-EFGH', env, now: NOW });
+    await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, accessToken: TOKEN, code: 'ABCD-EFGH', env, now: NOW });
     expect(fake.rpcCalls.map((call) => call.name)).toEqual([CONSUME_BACKUP_CODE_RPC]);
     expect(fake.rpcCalls[0].args).toEqual({ p_user: ALICE, p_hash: hashBackupCode('ABCD-EFGH', SECRET) });
     expect([...fake.queries, ...fake.writes].some((query) => query.table === 'mfa_backup_codes')).toBe(false);
@@ -195,10 +199,10 @@ describe('redeemBackupCode : usage unique et session de récupération', () => {
 
   it('sans secret, sans session ou base en erreur : refus, rien n’est retiré', async () => {
     const fake = setup();
-    expect(await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, code: 'ABCD-EFGH', env: {} })).toEqual({ ok: false, reason: 'secret_missing' });
-    expect(await redeemBackupCode(fake.client, { userId: ALICE, sessionId: null, code: 'ABCD-EFGH', env })).toEqual({ ok: false, reason: 'no_session' });
+    expect(await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, accessToken: TOKEN, code: 'ABCD-EFGH', env: {} })).toEqual({ ok: false, reason: 'secret_missing' });
+    expect(await redeemBackupCode(fake.client, { userId: ALICE, sessionId: null, accessToken: TOKEN, code: 'ABCD-EFGH', env })).toEqual({ ok: false, reason: 'no_session' });
     const broken = createFakeSupabase({}, { rpc: { [CONSUME_BACKUP_CODE_RPC]: () => ({ data: null, error: { message: 'x' } }) } });
-    expect(await redeemBackupCode(broken.client, { userId: ALICE, sessionId: SESSION, code: 'ABCD-EFGH', env })).toEqual({ ok: false, reason: 'db_error' });
+    expect(await redeemBackupCode(broken.client, { userId: ALICE, sessionId: SESSION, accessToken: TOKEN, code: 'ABCD-EFGH', env })).toEqual({ ok: false, reason: 'db_error' });
     expect(fake.tables.mfa_backup_codes.every((row) => row.used_at === null)).toBe(true);
   });
 
@@ -207,15 +211,28 @@ describe('redeemBackupCode : usage unique et session de récupération', () => {
     // Facteur déjà retiré entre la liste et le retrait : deleteFactor répond une erreur.
     const original = fake.client.auth.admin.mfa.deleteFactor;
     fake.client.auth.admin.mfa.deleteFactor = (async () => ({ data: null, error: { message: 'x' } })) as never;
-    const result = await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, code: 'ABCD-EFGH', env, now: NOW });
+    const result = await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, accessToken: TOKEN, code: 'ABCD-EFGH', env, now: NOW });
     fake.client.auth.admin.mfa.deleteFactor = original;
+    expect(result).toEqual({ ok: false, reason: 'incomplete' });
+    expect(fake.tables.mfa_trusted_sessions).toEqual([]);
+  });
+
+  it('les AUTRES sessions du membre sont fermées (portée « others »), avant l’ouverture de la récupération', async () => {
+    const fake = setup();
+    await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, accessToken: TOKEN, code: 'ABCD-EFGH', env, now: NOW });
+    expect(fake.authCalls.filter((call) => call.method.startsWith('admin.signOut'))).toEqual([{ method: 'admin.signOut:others', userId: ALICE }]);
+  });
+
+  it('fermeture des autres sessions en échec : « incomplete », AUCUNE récupération ouverte', async () => {
+    const fake = setup();
+    const result = await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, accessToken: 'jeton-inconnu', code: 'ABCD-EFGH', env, now: NOW });
     expect(result).toEqual({ ok: false, reason: 'incomplete' });
     expect(fake.tables.mfa_trusted_sessions).toEqual([]);
   });
 
   it('écriture de la récupération en échec : « incomplete »', async () => {
     const fake = setup(undefined, { failTables: ['mfa_trusted_sessions'] });
-    const result = await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, code: 'ABCD-EFGH', env, now: NOW });
+    const result = await redeemBackupCode(fake.client, { userId: ALICE, sessionId: SESSION, accessToken: TOKEN, code: 'ABCD-EFGH', env, now: NOW });
     expect(result).toEqual({ ok: false, reason: 'incomplete' });
   });
 });
@@ -251,5 +268,31 @@ describe('enrollmentAllowed : qui peut inscrire un nouveau facteur', () => {
     [false, null, true, false, false],
   ] as const)('inscrit=%s aal=%s codes=%s récupération=%s → %s', (enrolled, aal, hasBackupCodes, recovery, expected) => {
     expect(enrollmentAllowed({ enrolled, aal, hasBackupCodes, recovery })).toBe(expected);
+  });
+});
+
+describe('backupCodesManageAllowed : régénérer ou effacer les codes', () => {
+  it.each([
+    [true, 'aal2', true], // code de l'application donné dans cette session
+    [true, 'aal1', false], // session de confiance d'un appareil (aal1) : jamais
+    [false, 'aal1', false], // non inscrit
+    [false, 'aal2', false],
+    [true, null, false],
+  ] as const)('inscrit=%s aal=%s → %s', (enrolled, aal, expected) => {
+    expect(backupCodesManageAllowed({ enrolled, aal })).toBe(expected);
+  });
+
+  it('état absent → refus', () => {
+    expect(backupCodesManageAllowed(null)).toBe(false);
+    expect(backupCodesManageAllowed(undefined)).toBe(false);
+  });
+});
+
+describe('enrollmentAllowedFor : lit l’état du point d’entrée (member.mfa)', () => {
+  const base = { trusted: false, required: true, requiredForAll: false, satisfied: false, code: 'mfa_enrollment_required' as const };
+  it('codes en base sans récupération : refus ; avec récupération : permis ; jamais inscrit : permis', () => {
+    expect(enrollmentAllowedFor({ ...base, enrolled: false, aal: 'aal1', hasBackupCodes: true, recovery: false })).toBe(false);
+    expect(enrollmentAllowedFor({ ...base, enrolled: false, aal: 'aal1', hasBackupCodes: true, recovery: true })).toBe(true);
+    expect(enrollmentAllowedFor({ ...base, enrolled: false, aal: 'aal1' })).toBe(true);
   });
 });
