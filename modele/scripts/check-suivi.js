@@ -20,7 +20,7 @@
  *   (alias : --non-interactif)           hook .githooks/pre-commit : avertit sur stderr,
  *                                         ne pose aucune question, sort TOUJOURS en code 0.
  *
- * Exemple d'appel par un script de mise en ligne : VieSolution l'appelle depuis
+ * Exemple d'appel par un script de mise en ligne : un projet client l'appelle depuis
  * scripts/push-common.bat (push-staging.bat / push-prod.bat), en mode par defaut.
  *
  * Volontairement sans dependance : node seul.

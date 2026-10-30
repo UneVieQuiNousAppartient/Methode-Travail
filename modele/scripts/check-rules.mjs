@@ -44,7 +44,7 @@ const VERROUS = /(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|poetry\.lo
 const RULES = [
     {
         id: "secret-en-dur",
-        incident: "Exemple d'origine (VieSolution, 6 août 2026) : la valeur d'un secret de production a été écrite en clair dans un fichier versionné.",
+        incident: "Exemple d'origine (projet client, août 2026) : la valeur d'un secret de production a été écrite en clair dans un fichier versionné.",
         motif: /(sk-ant-[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9]{16,}|AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)/,
         dossiers: ["."],
         exclure: /(^|\/)\.env(\.[^/]*)?$/,
@@ -59,11 +59,11 @@ const RULES = [
         message: "marqueur de conflit de fusion — résoudre le conflit",
     },
 
-    // ---- Règles génériques reprises de VieSolution (kit CRM TS, lot 1, 30 oct. 2026) ----
+    // ---- Règles génériques reprises d'un projet client (kit CRM TS, lot 1, 30 oct. 2026) ----
     // Valables pour tout projet ; chemins à ajuster (`dossiers`, `exclure`) si le projet n'a pas `src/`.
     {
         id: "consentement-precoche",
-        incident: "VieSolution, 15 oct. 2026 (bloc B1, issue #172) : 7 formulaires (diagnostic, prise de rendez-vous, lead magnet, estimateurs, témoignages) avaient la case de consentement cochée par défaut — contraire à la Loi 25, qui exige un consentement manifeste.",
+        incident: "Projet client, oct. 2026 : 7 formulaires (diagnostic, prise de rendez-vous, lead magnet, estimateurs, témoignages) avaient la case de consentement cochée par défaut — contraire à la Loi 25, qui exige un consentement manifeste.",
         // Côté interface seulement : un état ou une valeur initiale de consentement à true.
         // Les routes API (src/app/api/) écrivent consent: true APRÈS avoir exigé la case cochée (z.literal(true)).
         motif: (ligne) => /consent/i.test(ligne) && /(useState(<[^>]*>)?\(\s*true\s*\)|\bconsent\w*['"]?\s*:\s*true\b|(\?\?|\|\|)\s*true\b|checked=\{\s*true\s*\}|\.default\(\s*true\s*\)|defaultChecked(?!=\{\s*false))/i.test(ligne),
@@ -74,7 +74,7 @@ const RULES = [
     },
     {
         id: "stockage-direct",
-        incident: "VieSolution, 16 oct. 2026 (issue #241) : un accès direct à localStorage faisait planter tout le site quand le navigateur bloque le stockage (Chrome « bloquer tous les cookies », navigateurs intégrés d'applications : le simple accès à window.localStorage lève SecurityError).",
+        incident: "Projet client, oct. 2026 : un accès direct à localStorage faisait planter tout le site quand le navigateur bloque le stockage (Chrome « bloquer tous les cookies », navigateurs intégrés d'applications : le simple accès à window.localStorage lève SecurityError).",
         // Accès au stockage (propriété, crochets, Object.keys, `in`) ; les lignes de commentaire ne comptent pas.
         motif: (ligne) => {
             const t = ligne.trim();
@@ -89,7 +89,7 @@ const RULES = [
     },
     {
         id: "police-google",
-        incident: "VieSolution, 16-17 oct. 2026 (E08, issue #246) : next/font/google télécharge les polices à chaque build ; le téléchargement échouait par moments en CI — build cassé (PR #237, #245), puis en-tête d'une page qui débordait de 49 px (police de secours).",
+        incident: "Projet client, oct. 2026 : next/font/google télécharge les polices à chaque build ; le téléchargement échouait par moments en CI — build cassé, puis en-tête d'une page qui débordait de 49 px (police de secours).",
         motif: /next\/font\/google|fonts\.(googleapis|gstatic)\.com/,
         dossiers: ["src"],
         extensions: /\.(m?[jt]sx?|css)$/i,
@@ -97,7 +97,7 @@ const RULES = [
     },
     {
         id: "temoignages-demo",
-        incident: "VieSolution, 27 oct. 2026 (issue #224, bloquant conformité) : l'accueil retombait sur des témoignages de démonstration (testimonials.seed.ts) dès que la base ne renvoyait aucun avis publié — de faux avis affichés comme réels.",
+        incident: "Projet client, oct. 2026 (bloquant conformité) : l'accueil retombait sur des témoignages de démonstration dès que la base ne renvoyait aucun avis publié — de faux avis affichés comme réels.",
         // Toute importation d'un fichier de témoignages de démonstration dans le code de l'application.
         motif: /(from\s+|import\(\s*|require\(\s*)['"][^'"]*testimonials?\.seed['"]/,
         dossiers: ["src"],
@@ -105,7 +105,7 @@ const RULES = [
         exclure: /\.(test|spec)\.[jt]sx?$/,
         message: "témoignages de démonstration importés — n'afficher que des avis réels approuvés ; sans avis, une invitation à en laisser un, jamais un faux témoignage",
     },
-    // Non reprises (propres à VieSolution) : `politique-accents` (mots et chemin de sa politique), `chatbot-formulations`
+    // Non reprises (propres au projet d'origine) : `politique-accents` (mots et chemin de sa politique), `chatbot-formulations`
     // (vocabulaire AMF d'un outil d'éducation financière — exemple d'une règle de vocabulaire par fichier), et une règle
     // propre à une personne.
 
