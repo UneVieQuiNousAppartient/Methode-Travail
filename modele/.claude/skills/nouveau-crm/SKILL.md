@@ -27,16 +27,20 @@ et ce kit sert à l'étape de construction.
    « code » ou « fiche »), puis `kits/crm/LECONS.md` (ce qui a déjà coûté cher).
 2. Le projet : `CLAUDE.md` (Fiche projet), le schéma de la base s'il existe, l'authentification en place.
    **Ne jamais écraser** un fichier du projet : fusionner, ou signaler le doublon.
-3. Pile différente de celle du kit (Next.js App Router + Supabase + JavaScript) : le dire tout de suite.
-   Le code ne se copie pas tel quel ; les **fiches**, les **leçons** et les **règles d'écran**
-   (`admin/PATTERNS.md`) restent valables.
+3. Pile du projet : Next.js App Router + Supabase en **JavaScript** → `auth/`, `admin/`, `tests/` ; en
+   **TypeScript strict** → `kits/crm/ts/` d'abord (lot 1 : site public, formulaires, courriels ; mode d'emploi
+   `ts/BRIQUE.md`), puis les briques JS **à traduire** pour ce qui n'existe pas encore en TS. Autre pile : le
+   dire tout de suite ; le code ne se copie pas tel quel ; les **fiches**, les **leçons** et les **règles
+   d'écran** (`admin/PATTERNS.md`) restent valables.
 
 ## 1. Choisir les briques avec l'utilisatrice
 
 Présenter, **en français simple**, la liste des briques utiles au projet (pas tout le catalogue), en trois
 groupes, avec ce que chacune apporte en une ligne et son coût estimé (`budget-jetons.md`) :
 - **socle** (presque toujours) : accès de l'équipe et rôles, journal d'activité, double authentification,
-  coquille d'admin, confirmations, outillage de tests ;
+  coquille d'admin, confirmations, outillage de tests ; **site public** : adresse du site, IP fiable,
+  anti-abus, Turnstile, CSP, consentement jamais précoché, envoi de courriels, désabonnement (LCAP), garde du
+  secret cron (`ts/` en TypeScript ; en JavaScript : fiches du catalogue) ;
 - **selon le besoin** : « se souvenir de cet appareil », clés d'API, espaces clients (rôles + règles de la
   base), fiche en page, assistant ;
 - **fonctions** (fiches à réécrire pour le métier) : leads, tâches, Kanban, CSV, « Aujourd'hui »,
@@ -55,6 +59,11 @@ schéma de la base sont dans la liste « accord avant de coder ».
 
 Chaque brique a un `BRIQUE.md` : fichiers, tables, variables d'environnement, dépendances, adaptation,
 vérification. Le suivre à la lettre. Ordre :
+
+0. **Projet TypeScript : `kits/crm/ts/`** avant toute route publique — migrations `0101_rate_limits.sql` et
+   `0102_lcap_desabonnement.sql` (accord ; appliquées par Camille seulement), puis `src/lib/`, puis les routes
+   (`api/desabonnement`, `api/csp-rapport`) et la CSP dans `next.config` (en **observation** d'abord), avant les
+   briques JS équivalentes à traduire.
 
 1. **Base et accès** (`kits/crm/auth/`) : migrations (skill de migration du projet, ou `apply_migration`
    avec l'accord de l'utilisatrice), `lib/authServer.js`, `lib/roles.js` (**matrice à réécrire** pour les
@@ -77,6 +86,10 @@ projet (domaine, courriel, identifiant de projet Supabase, nom).
 ## 3. Vérifier chaque brique avant la suivante
 
 - La commande **Vérification** de la Fiche projet passe.
+- Kit TS : `npm run verify` du kit (tsc strict + Vitest) dans un dossier `mktemp -d` (commande dans
+  `ts/BRIQUE.md`), puis les mêmes tests dans le projet. **Règle E15** : un essai de mutation (« casser la
+  règle ») ne se fait **que** dans une copie `cp -a` sous `mktemp -d`, avec une garde sur `$PWD` ; jamais
+  `rsync`, jamais `rm -rf` sur un chemin relatif, jamais dans un dépôt.
 - Les tests de la brique passent **et échouent quand on casse la règle** (une fois, noté au suivi).
 - Pour l'admin : le harnais de simulation (`kits/crm/tests/simulation/`) joue le démarrage (chaque appel une
   seule fois) et chaque action en échec, en refus et en réussite (confirmation, message de réussite et d'erreur,

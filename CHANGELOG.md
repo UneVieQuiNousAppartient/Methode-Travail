@@ -5,6 +5,38 @@ Version courante : fichier `VERSION`. Chaque projet note la version reçue dans 
 Numérotation : majeure = changement qui demande de refaire l'installation ; mineure = ajout ;
 correctif = précision de texte.
 
+## 1.4.0 — 30 oct. 2026 — Kit CRM TS, lot 1 (site public, formulaires, courriels)
+
+Demande de Camille : « prendre les meilleurs entre VieSolution, Web et KHI », lot 1. Chaque brique est copiée de
+sa meilleure source d'après la comparaison du 30 oct. (`VieSolution-CSF/docs/methode/MEILLEURES-BRIQUES.md`),
+avec sa ligne d'origine (projet, chemin, commit) ; plan : `projets/kit-ts/IMPLEMENTATION-PLAN.md`.
+- **`kits/crm/ts/`** (nouveau) : mini-projet Next.js + TypeScript strict à copier à la racine d'un projet —
+  adresse du site (KHI), IP fiable (CSF), anti-abus avec compteur en base, repli mémoire qui limite toujours et
+  taille de corps (CSF) + table des limites (KHI), Turnstile (KHI + refus 503 de CSF + nom d'hôte facultatif),
+  CSP bloquante avec mode observation par défaut (CSF + Web) et route de rapports, redirection interne sûre
+  (CSF + cas de KHI), consentement jamais précoché (CSF, principe seul), envoi Resend (Web), désabonnement en un
+  clic + règles LCAP (Web + KHI), garde du secret cron (CSF) ; migrations `0101_rate_limits.sql` et
+  `0102_lcap_desabonnement.sql` (colonnes sur `leads`) ; `.env.exemple` ; mode d'emploi `ts/BRIQUE.md`
+  (passage de la CSP en actif, tests de la source non repris et pourquoi).
+- **`modele/scripts/check-rules.mjs`** : 4 règles génériques reprises de VieSolution — `consentement-precoche`,
+  `stockage-direct`, `police-google`, `temoignages-demo`, chacune avec son incident.
+- **`CATALOGUE.md`** : colonne « TS » (familles 1, 4, 5, 8) et 6 nouvelles lignes (IP, CSP, redirection,
+  consentement, garde cron, tests TS). **README du kit** : `ts/`, pile JS / TS, ordre d'installation, vérification.
+  **Skill `nouveau-crm`** : pile TS → `kits/crm/ts/`, socle « site public », ordre d'installation TS, `npm run
+  verify` hors projet et règle E15 (mutations dans une copie `mktemp -d` seulement).
+- **Écarts corrigés dans le kit** : n° 3 (panne de base = tout passait), n° 4 (IP lue à un seul endroit), n° 7
+  (Turnstile : délai de 5 s, nom d'hôte). Secret des liens de désabonnement durci à 32 caractères (16 dans les
+  sources). Kit JS non touché.
+- **Vérifié** : `tsc --noEmit` strict + Vitest, 16 fichiers, 339 tests au vert dans un dossier `mktemp -d`
+  (versions épinglées sur VieSolution-CSF ; `legacy-peer-deps` à cause d'un bogue de npm 10 avec Vitest 4) ;
+  chaque brique vue en échec une fois, règle cassée dans une copie temporaire seulement ; les 4 règles
+  `check-rules` vues bloquantes sur une copie, `check-rules` sans violation sur le modèle et sur `kits/crm/ts/` ;
+  revues `qa-agent` à chaque phase et en fin de lot.
+- **Pas encore vérifié** : les deux migrations n'ont jamais été jouées sur une base neuve ; aucune brique n'est
+  encore installée dans un projet réel (routes jamais servies par un vrai `next build`) ; la CSP n'a pas été
+  observée dans un navigateur ; la comparaison de jetons à temps constant n'est pas prouvable par un test de
+  comportement (relue à la main).
+
 ## 1.3.0 — 21 oct. 2026 — Kit CRM (apports de KHI Educ)
 
 Demande de Camille : « mettre cette façon de faire les CRM dans la méthode, surtout l'admin, les auths, les

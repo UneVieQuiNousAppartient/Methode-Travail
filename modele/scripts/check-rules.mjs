@@ -59,6 +59,56 @@ const RULES = [
         message: "marqueur de conflit de fusion — résoudre le conflit",
     },
 
+    // ---- Règles génériques reprises de VieSolution (kit CRM TS, lot 1, 30 oct. 2026) ----
+    // Valables pour tout projet ; chemins à ajuster (`dossiers`, `exclure`) si le projet n'a pas `src/`.
+    {
+        id: "consentement-precoche",
+        incident: "VieSolution, 15 oct. 2026 (bloc B1, issue #172) : 7 formulaires (diagnostic, prise de rendez-vous, lead magnet, estimateurs, témoignages) avaient la case de consentement cochée par défaut — contraire à la Loi 25, qui exige un consentement manifeste.",
+        // Côté interface seulement : un état ou une valeur initiale de consentement à true.
+        // Les routes API (src/app/api/) écrivent consent: true APRÈS avoir exigé la case cochée (z.literal(true)).
+        motif: (ligne) => /consent/i.test(ligne) && /(useState(<[^>]*>)?\(\s*true\s*\)|\bconsent\w*['"]?\s*:\s*true\b|(\?\?|\|\|)\s*true\b|checked=\{\s*true\s*\}|\.default\(\s*true\s*\)|defaultChecked(?!=\{\s*false))/i.test(ligne),
+        dossiers: ["src"],
+        extensions: /\.(m?[jt]sx?)$/i,
+        exclure: /(^src\/app\/api\/|\.(test|spec)\.[jt]sx?$)/,
+        message: "consentement précoché — la case de consentement démarre décochée (false) ; seul le serveur enregistre true, après avoir exigé la case cochée",
+    },
+    {
+        id: "stockage-direct",
+        incident: "VieSolution, 16 oct. 2026 (issue #241) : un accès direct à localStorage faisait planter tout le site quand le navigateur bloque le stockage (Chrome « bloquer tous les cookies », navigateurs intégrés d'applications : le simple accès à window.localStorage lève SecurityError).",
+        // Accès au stockage (propriété, crochets, Object.keys, `in`) ; les lignes de commentaire ne comptent pas.
+        motif: (ligne) => {
+            const t = ligne.trim();
+            if (t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")) return false;
+            return /\b(localStorage|sessionStorage)\s*(\?\.|\.|\[)|Object\.(keys|entries|values)\(\s*(window\.)?(localStorage|sessionStorage)\b|\bin\s+(window\.)?(localStorage|sessionStorage)\b/.test(ligne);
+        },
+        dossiers: ["src"],
+        extensions: /\.(m?[jt]sx?)$/i,
+        // À adapter : chemin de l'enrobeur du projet (try/catch autour de chaque accès), seul fichier autorisé.
+        exclure: /(^src\/lib\/safe-storage\.ts$|\.(test|spec)\.[jt]sx?$)/,
+        message: "accès direct au stockage du navigateur — passer par l'enrobeur sûr (src/lib/safe-storage.ts : try/catch, valeur de repli), jamais localStorage ou sessionStorage en direct",
+    },
+    {
+        id: "police-google",
+        incident: "VieSolution, 16-17 oct. 2026 (E08, issue #246) : next/font/google télécharge les polices à chaque build ; le téléchargement échouait par moments en CI — build cassé (PR #237, #245), puis en-tête d'une page qui débordait de 49 px (police de secours).",
+        motif: /next\/font\/google|fonts\.(googleapis|gstatic)\.com/,
+        dossiers: ["src"],
+        extensions: /\.(m?[jt]sx?|css)$/i,
+        message: "police chargée depuis Google — servir la police depuis le dépôt (fichiers dans src/app/fonts + next/font/local), avec sa licence",
+    },
+    {
+        id: "temoignages-demo",
+        incident: "VieSolution, 27 oct. 2026 (issue #224, bloquant conformité) : l'accueil retombait sur des témoignages de démonstration (testimonials.seed.ts) dès que la base ne renvoyait aucun avis publié — de faux avis affichés comme réels.",
+        // Toute importation d'un fichier de témoignages de démonstration dans le code de l'application.
+        motif: /(from\s+|import\(\s*|require\(\s*)['"][^'"]*testimonials?\.seed['"]/,
+        dossiers: ["src"],
+        extensions: /\.(m?[jt]sx?)$/i,
+        exclure: /\.(test|spec)\.[jt]sx?$/,
+        message: "témoignages de démonstration importés — n'afficher que des avis réels approuvés ; sans avis, une invitation à en laisser un, jamais un faux témoignage",
+    },
+    // Non reprises (propres à VieSolution) : `politique-accents` (mots et chemin de sa politique), `chatbot-formulations`
+    // (vocabulaire AMF d'un outil d'éducation financière — exemple d'une règle de vocabulaire par fichier), et une règle
+    // propre à une personne.
+
     // ---- Exemples à adapter au projet (décommenter, remplacer les valeurs inventées) ----
     //
     // {
