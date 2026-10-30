@@ -44,7 +44,7 @@ const VERROUS = /(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|poetry\.lo
 const RULES = [
     {
         id: "secret-en-dur",
-        incident: "Exemple d'origine (VieSolution, 6 août 2026) : la valeur d'un secret de production a été écrite en clair dans un fichier versionné.",
+        incident: "Exemple d'origine (projet client, août 2026) : la valeur d'un secret de production a été écrite en clair dans un fichier versionné.",
         motif: /(sk-ant-[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9]{16,}|AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)/,
         dossiers: ["."],
         exclure: /(^|\/)\.env(\.[^/]*)?$/,
@@ -58,6 +58,56 @@ const RULES = [
         extensions: /\.(m?[jt]sx?|cjs|json|css|scss|html?|vue|svelte|astro|py|rb|php|sql|ya?ml|toml|sh)$/i,
         message: "marqueur de conflit de fusion — résoudre le conflit",
     },
+
+    // ---- Règles génériques reprises d'un projet client (kit CRM TS, lot 1, 30 oct. 2026) ----
+    // Valables pour tout projet ; chemins à ajuster (`dossiers`, `exclure`) si le projet n'a pas `src/`.
+    {
+        id: "consentement-precoche",
+        incident: "Projet client, oct. 2026 : 7 formulaires (diagnostic, prise de rendez-vous, lead magnet, estimateurs, témoignages) avaient la case de consentement cochée par défaut — contraire à la Loi 25, qui exige un consentement manifeste.",
+        // Côté interface seulement : un état ou une valeur initiale de consentement à true.
+        // Les routes API (src/app/api/) écrivent consent: true APRÈS avoir exigé la case cochée (z.literal(true)).
+        motif: (ligne) => /consent/i.test(ligne) && /(useState(<[^>]*>)?\(\s*true\s*\)|\bconsent\w*['"]?\s*:\s*true\b|(\?\?|\|\|)\s*true\b|checked=\{\s*true\s*\}|\.default\(\s*true\s*\)|defaultChecked(?!=\{\s*false))/i.test(ligne),
+        dossiers: ["src"],
+        extensions: /\.(m?[jt]sx?)$/i,
+        exclure: /(^src\/app\/api\/|\.(test|spec)\.[jt]sx?$)/,
+        message: "consentement précoché — la case de consentement démarre décochée (false) ; seul le serveur enregistre true, après avoir exigé la case cochée",
+    },
+    {
+        id: "stockage-direct",
+        incident: "Projet client, oct. 2026 : un accès direct à localStorage faisait planter tout le site quand le navigateur bloque le stockage (Chrome « bloquer tous les cookies », navigateurs intégrés d'applications : le simple accès à window.localStorage lève SecurityError).",
+        // Accès au stockage (propriété, crochets, Object.keys, `in`) ; les lignes de commentaire ne comptent pas.
+        motif: (ligne) => {
+            const t = ligne.trim();
+            if (t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")) return false;
+            return /\b(localStorage|sessionStorage)\s*(\?\.|\.|\[)|Object\.(keys|entries|values)\(\s*(window\.)?(localStorage|sessionStorage)\b|\bin\s+(window\.)?(localStorage|sessionStorage)\b/.test(ligne);
+        },
+        dossiers: ["src"],
+        extensions: /\.(m?[jt]sx?)$/i,
+        // À adapter : chemin de l'enrobeur du projet (try/catch autour de chaque accès), seul fichier autorisé.
+        exclure: /(^src\/lib\/safe-storage\.ts$|\.(test|spec)\.[jt]sx?$)/,
+        message: "accès direct au stockage du navigateur — passer par l'enrobeur sûr (src/lib/safe-storage.ts : try/catch, valeur de repli), jamais localStorage ou sessionStorage en direct",
+    },
+    {
+        id: "police-google",
+        incident: "Projet client, oct. 2026 : next/font/google télécharge les polices à chaque build ; le téléchargement échouait par moments en CI — build cassé, puis en-tête d'une page qui débordait de 49 px (police de secours).",
+        motif: /next\/font\/google|fonts\.(googleapis|gstatic)\.com/,
+        dossiers: ["src"],
+        extensions: /\.(m?[jt]sx?|css)$/i,
+        message: "police chargée depuis Google — servir la police depuis le dépôt (fichiers dans src/app/fonts + next/font/local), avec sa licence",
+    },
+    {
+        id: "temoignages-demo",
+        incident: "Projet client, oct. 2026 (bloquant conformité) : l'accueil retombait sur des témoignages de démonstration dès que la base ne renvoyait aucun avis publié — de faux avis affichés comme réels.",
+        // Toute importation d'un fichier de témoignages de démonstration dans le code de l'application.
+        motif: /(from\s+|import\(\s*|require\(\s*)['"][^'"]*testimonials?\.seed['"]/,
+        dossiers: ["src"],
+        extensions: /\.(m?[jt]sx?)$/i,
+        exclure: /\.(test|spec)\.[jt]sx?$/,
+        message: "témoignages de démonstration importés — n'afficher que des avis réels approuvés ; sans avis, une invitation à en laisser un, jamais un faux témoignage",
+    },
+    // Non reprises (propres au projet d'origine) : `politique-accents` (mots et chemin de sa politique), `chatbot-formulations`
+    // (vocabulaire AMF d'un outil d'éducation financière — exemple d'une règle de vocabulaire par fichier), et une règle
+    // propre à une personne.
 
     // ---- Exemples à adapter au projet (décommenter, remplacer les valeurs inventées) ----
     //

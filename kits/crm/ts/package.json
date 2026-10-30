@@ -1,0 +1,20 @@
+{
+  "name": "kit-crm-ts",
+  "private": true,
+  "type": "module",
+  "description": "Kit CRM TS (methode-travail) : briques du lot 1. Copier le contenu de ts/ à la racine d'un projet Next.js TS.",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "verify": "tsc --noEmit && vitest run"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "2.118.0",
+    "@types/node": "24.10.1",
+    "next": "16.4.3",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.12"
+  }
+}
