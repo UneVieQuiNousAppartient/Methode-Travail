@@ -1,4 +1,4 @@
-# Kit CRM TS — lots 1 et 2 : site public, formulaires, courriels ; socle de l'admin d'équipe
+# Kit CRM TS — lots 1 et 2 : site public, formulaires, courriels ; socle de l'admin d'équipe ; poste d'appel
 
 Variante **TypeScript strict** du kit CRM (Next.js App Router + Supabase + Vercel). Chaque brique vient de sa
 meilleure source parmi trois projets clients en production, selon une comparaison du 30 oct. 2026. Chaque
@@ -11,6 +11,9 @@ variable d'environnement ; les textes visibles sont des exemples marqués `[à a
   vérification, appareils de confiance, codes de secours, verrou de compte, journaux, Loi 25 (accès,
   effacement, conservation), archivage, santé (L0-L12). **Pas d'écran** : les pages et routes sont à écrire
   par le projet (règles plus bas).
+- **Poste d'appel** (depuis 1.6.0) : file d'appels du jour, 5 résultats d'appel appliqués en une transaction,
+  bilan du jour, emplacements de scripts vides, brouillon de courriel après l'appel (modèle injecté). **Pas
+  d'écran ni de route** : règles plus bas (section « Poste d'appel »).
 - Lot 3 (à venir) : clés d'API, connecteur, automatisations, agenda, webhooks ; puis un lot d'écrans.
 
 ## Fichiers
@@ -50,6 +53,18 @@ Le dossier reproduit l'arborescence d'un projet : `ts/src/lib/api/turnstile.ts` 
 | L10 Accès, effacement, conservation | `privacy/privacy.ts`, `effacement.ts`, `conservation.ts` | `accessPerson`, `erasePerson` (empreinte **d'abord**, tables paramétrées, adresses de l'équipe exclues), purge après `RETENTION_MONTHS` |
 | L11 Archivage | `archivage/archivage.ts` (+ `exemple-liste.ts`) | archivé = masqué, jamais effacé ; `sansArchives`, `doitDesarchiver` |
 | L12 Santé + battement | `health/heartbeat.ts`, `health/verdict.ts` | battement du tick (`enregistrerBattement`), verdicts purs (tick, variables, secret cron, mode jeton, MFA, base) |
+
+### Poste d'appel (depuis 1.6.0)
+
+| Brique | Fichiers (`src/lib/appels/…` sauf mention) | Ce qu'elle fait |
+|---|---|---|
+| A1 Règles | `regles.ts` | `ConfigAppels` (étapes, étapes protégées, plan par résultat, fuseau, jours ouvrables et fériés, heure du suivi ; exemple `CONFIG_APPELS_EXEMPLE` `[à adapter]`, `verifierConfigAppels`) ; `planResultat` (aperçu = ce qui sera écrit ; une étape protégée **ne recule jamais**) ; `prochainJourOuvrable`, `classerFile`, `bilanDuJour`, `detailsAppel`, `exigeConversation` ; scripts : `scriptsVides`, `afficherScript`, `remplirScript` |
+| A2 Serveur | `server.ts` | `lireFile`, `lireBilan`, `apercuAppel` (rien n'est écrit), `confirmerAppel` (RPC), `lireSaisieAppel` ; contrôle d'accès **injecté** (`AccesAppels` : périmètre + auteur) |
+| A3 Courriel après l'appel | `courriel.ts` | `construireInviteSysteme`, `buildAppelEmailPrompt` (coordonnées masquées, bloc non fiable), `refusCourrielAppel`, `accordDejaNote`, `lireBrouillon`, `pointsAVerifier`, `redigerCourrielAppel` (modèle **injecté**) ; plafond `APPEL_EMAIL_DAILY_RULE` pour le compteur de B3 |
+| A4 Transaction | `supabase/migrations/0112_call_result.sql` | `record_call_result` : lead verrouillé, périmètre revérifié, tâche terminée, activité, contact, étape (garde), suivi, `follow_up_at` |
+
+Tests : `regles.test.ts`, `server.test.ts` (faux Supabase L0), `courriel.test.ts`, `parite-sql.test.ts` (listes du
+SQL = configuration d'exemple : changer l'une sans l'autre fait échouer ce test).
 
 Chaque fichier a son `*.test.ts` à côté (Vitest). `package.json`, `tsconfig.json`, `vitest.config.ts`,
 `.npmrc`, `.gitignore` servent aux tests **du kit** : ne pas les copier tels quels dans un projet (y reprendre
@@ -107,6 +122,12 @@ Lot 2, **ordre obligatoire 0101 → 0111** (0103 à 0111 après les deux du lot 
    atomique), `replace_mfa_backup_codes`.
 10. `0110_archivage.sql` — `archived_at` sur `leads` (**à adapter**) + index partiel.
 11. `0111_cron_heartbeats.sql` — `cron_heartbeats`, RLS sans politique.
+
+Poste d'appel (depuis 1.6.0), **après 0110** (lit `archived_at`) :
+12. `0112_call_result.sql` — fonction `record_call_result` (`security definer`, `search_path` fixé, `service_role`
+    seulement). Dépend des tables du projet `leads`, `tasks`, `activities` (**à adapter** : noms, colonnes, listes
+    d'étapes, d'étapes protégées et de raisons de perte, alignées sur `ConfigAppels`). Avant le code qui l'appelle
+    (sinon la confirmation répond 503, sans rien écrire).
 
 **Préalable Supabase (tableau de bord, avant d'ouvrir l'admin)** : Authentication › inscriptions publiques
 **désactivées** et « Confirm email » **activé**. Sinon une adresse de la liste blanche encore sans compte peut être
@@ -201,6 +222,51 @@ que ses fiches ») reste dans chaque route (propre au métier, non fourni).
   jour, sinon le nouveau titulaire est refusé.
 - **(e) Route de santé** : réservée au rang `admin`.
 
+### Poste d'appel
+
+**À adapter** : copier `CONFIG_APPELS_EXEMPLE` dans le projet et le remplacer (étapes réelles, étapes protégées,
+étape « perdu » et raison, passage automatique quand la personne est jointe (`avanceeQuandJoint`, ex. nouveau →
+contacté), fuseau, jours ouvrables, jours fériés, heure du suivi, libellés), passer la configuration
+par `verifierConfigAppels` au chargement, puis reporter les mêmes listes dans `0112_call_result.sql` (et dans
+`parite-sql.test.ts` si le projet garde ce test, conseillé). Les libellés des résultats servent de titre d'activité
+et au bilan : ne pas les changer une fois en service. Contrôle d'accès : écrire `AccesAppels` du projet (avec le
+lot 2 : `{ tout: true }` pour les rangs qui voient toute l'équipe, `{ responsable: member.userId }` sinon ;
+`leads.owner_id` doit contenir le même identifiant).
+
+**Scripts** : le kit n'en fournit **aucun**. Un emplacement par étape d'appel (`ETAPES_SCRIPT` : ouverture,
+découverte, objections, conclusion, message vocal, courriel de suivi, `[à adapter]`) affiche « Script à recevoir »
+tant que le client n'a pas donné son texte, puis « en attente de relecture » tant que `relu` n'est pas rempli.
+Les textes sont ceux du client, recopiés mot pour mot ; jamais rédigés par un agent.
+
+**Règles pour les routes que le projet écrira** (aucune n'est fournie, aucun écran) :
+- **(f) File et bilan** (`GET`) : `getTeamMember` (L3) d'abord, puis `lireFile` et `lireBilan` avec l'`AccesAppels`
+  du projet ; la matrice (L1) donne l'accès à l'onglet, le périmètre donne les fiches.
+- Lead archivé (0110) : la file l'exclut ; l'aperçu, la confirmation et la fonction SQL répondent « introuvable ».
+- **(g) Résultat d'un appel** (`POST`) : `getTeamMember`, `validateJsonRequest` (B3, 16 Ko), `lireSaisieAppel`
+  (identifiants dans le **corps**, jamais dans l'adresse) ; sans `confirm` → `apercuAppel` (rien n'est écrit) ; avec
+  `confirm: true` → `confirmerAppel`. `RefusAppel` → `{ error: message }` avec son `status` ; toute autre erreur →
+  message générique, détail technique au journal seulement (jamais de donnée de prospect).
+- **(h) Courriel après l'appel** (`POST { leadId, resultat, notes, accordVerbal }`) : dans cet ordre, `exigeConversation`
+  et `accordVerbal === true` **avant** toute lecture en base et tout appel au modèle ; fiche dans le périmètre ;
+  `refusCourrielAppel` avec `adresseEffacee = !mayContact(...)` (L10) ; accord noté à la fiche (`accordDejaNote`,
+  sinon une activité `note` `ACCORD_APPEL_TITRE`) — **sans preuve de l'accord, pas de brouillon** ; plafonds :
+  quota par membre, puis `hitSharedCounter(hashRateLimitKey(APPEL_EMAIL_COUNTER_SOURCE), APPEL_EMAIL_DAILY_RULE)` ;
+  puis `redigerCourrielAppel` avec le client IA du projet ; la route **renvoie un brouillon, n'envoie rien**.
+  L'envoi passe ensuite par le chemin habituel (B8 + pied, en-têtes et contrôles LCAP de B9), après relecture.
+
+**Conformité** :
+- **Scripts relus par un humain avant usage** (le responsable de la conformité du client, s'il y en a un) : c'est
+  ce que `relu` atteste ; un script non relu ne s'affiche pas.
+- **Aucune promesse** dans un script ni dans un courriel (ni garantie, ni rendement, ni prix non dit) ; les règles
+  propres au métier (vocabulaire interdit, sujets réglementés) s'ajoutent par `reglesSupplementaires`, et les
+  mentions réglementaires obligatoires vont dans le **pied** du courriel, ajouté à l'envoi, jamais rédigées par le
+  modèle (`[à adapter]` selon le métier du client).
+- **Consentement de vive voix noté** : la case « La personne accepte de recevoir un courriel » est cochée par la
+  personne qui appelle, et l'accord est écrit sur la fiche (date, auteur). Jamais après « message laissé » ou « pas
+  de réponse » (personne n'a parlé). L'accord de vive voix ne lève jamais un désabonnement.
+- Le brouillon est relu par la personne qui appelle ; une revue de conformité automatique, si le projet en a une,
+  s'ajoute à cette relecture sans la remplacer.
+
 ## Vérification (tests du kit, hors de tout projet)
 
 Jamais dans le dépôt, jamais de `node_modules` dans `methode-travail` :
@@ -236,6 +302,12 @@ Lot 2 :
 - Tests de routes du projet source (pages admin, routes de santé, d'effacement, d'archivage) : les routes ne
   sont pas dans le kit ; les règles pures qu'elles appelaient sont testées ici.
 - L0 et L6 : la source n'avait pas de tests en propre ; ils sont écrits pour le kit (conception neuve pour L6).
+
+Poste d'appel :
+- Tests de routes de la source (file, résultat, courriel) : les routes ne sont pas dans le kit ; `server.test.ts`
+  et `parite-sql.test.ts` sont écrits pour le kit.
+- Tests du client IA, de l'analyse de sortie et du masquage propres au projet source : remplacés par des tests du
+  modèle injecté, de `lireBrouillon` et de `preparerPourModele`.
 
 ## Pièges corrigés ici (écarts de la comparaison)
 

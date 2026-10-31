@@ -5,6 +5,36 @@ Version courante : fichier `VERSION`. Chaque projet note la version reçue dans 
 Numérotation : majeure = changement qui demande de refaire l'installation ; mineure = ajout ;
 correctif = précision de texte.
 
+## 1.6.0 — 2026-10-31 — Kit CRM TS, poste d'appel
+
+Brique « Poste d'appel » en TypeScript strict, sans écrans ni routes, portée d'un projet client en production et
+rendue générique ; chaque fichier garde sa ligne d'origine.
+- **`kits/crm/ts/src/lib/appels/`** : `regles.ts` (configuration `ConfigAppels` — étapes, étapes qui ne reculent
+  jamais, plan des 5 résultats, fuseau, jours ouvrables et fériés, heure du suivi — avec un exemple `[à adapter]`
+  et sa vérification ; plan d'un résultat = aperçu = écriture ; file du jour, bilan, prochain jour ouvrable ;
+  emplacements de scripts **vides** par étape d'appel, « Script à recevoir », non affichés tant qu'ils ne sont pas
+  relus) ; `server.ts` (file, bilan, aperçu sans écriture, confirmation par RPC ; contrôle d'accès injecté) ;
+  `courriel.ts` (brouillon après l'appel : règles de rédaction génériques, coordonnées masquées, refus sans
+  conversation, sans accord de vive voix, désabonné ou adresse effacée ; modèle injecté ; rien n'est envoyé) ;
+  migration `0112_call_result.sql` (`record_call_result`, une transaction, `security definer`, `service_role`
+  seulement, listes `[à adapter]`, vérifications et retour arrière), fournie, jamais appliquée.
+- **Documents** : `ts/BRIQUE.md` (section « Poste d'appel » : fichiers, ordre après 0110, règles pour les routes
+  (f)-(h), conformité : scripts relus par un humain avant usage, aucune promesse, consentement de vive voix noté) ;
+  `CATALOGUE.md` (ligne « Poste d'appel », famille 3) ; README du kit (contenu de `ts/`, migration 0112 dans l'ordre
+  d'installation).
+- Aucun texte de script dans le kit : les scripts sont ceux du client, recopiés puis relus.
+- Après la revue `qa-agent` (une révision) : passage automatique « nouveau → contacté » quand la personne est
+  jointe rendu explicite (`ConfigAppels.avanceeQuandJoint`, utilisé par l'aperçu comme par le SQL) ; lead archivé
+  refusé (404, comme introuvable) par le serveur et par `record_call_result` ; auteur normalisé une seule fois
+  (même valeur écrite et lue par le bilan) ; skill `nouveau-crm` (poste d'appel, migration 0112).
+- **Vérifié** : `npm run verify` (tsc strict + Vitest) dans une copie `mktemp -d`, 41 fichiers, 793 tests au vert
+  (719 + 74) ; règles cassées une fois dans la copie et vues en échec : garde « ne recule jamais » (TS et SQL),
+  refus sans conversation, refus sans accord, périmètre du serveur, script non relu, avancée « joint », lead
+  archivé (serveur et SQL), auteur normalisé ; `qa-agent` (vert, puis une révision).
+- **Pas encore vérifié** : `0112` jamais jouée sur une base (la parité avec la configuration est seulement lue dans
+  le texte du SQL) ; aucune route ni écran écrits avec la brique ; client IA réel jamais branché sur
+  `redigerCourrielAppel` ; pas de `securite` sur ce lot.
+
 ## 1.5.0 — 2026-10-30 — Kit CRM TS, lot 2
 
 Socle de l'admin d'équipe en TypeScript strict, sans écrans ; plan : `projets/kit-ts/IMPLEMENTATION-PLAN-LOT2.md`.

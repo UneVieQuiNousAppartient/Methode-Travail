@@ -2,7 +2,7 @@
   "name": "kit-crm-ts",
   "private": true,
   "type": "module",
-  "description": "Kit CRM TS (methode-travail) : briques des lots 1 et 2. Copier le contenu de ts/ à la racine d'un projet Next.js TS.",
+  "description": "Kit CRM TS (methode-travail) : briques des lots 1 et 2 et du poste d'appel. Copier le contenu de ts/ à la racine d'un projet Next.js TS.",
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",

@@ -11,7 +11,7 @@ adapter**. Mode d'emploi : `README.md` de ce dossier, puis la skill `nouveau-crm
   nouveau projet (trop lié au métier du projet source : séances, tuteurs, diagnostics).
 
 **Colonne « TS »** (tableaux 1, 4, 5 et 8) :
-- **code (`ts/`)** — variante TypeScript strict fournie dans `kits/crm/ts/` (lots 1 et 2, depuis 1.5.0), prise
+- **code (`ts/`)** — variante TypeScript strict fournie dans `kits/crm/ts/` (lots 1 et 2, depuis 1.5.0 ; poste d'appel, depuis 1.6.0), prise
   sur la meilleure de trois sources (projets clients ; voir la ligne d'origine de chaque fichier), avec ses tests
   Vitest ; mode d'emploi dans `ts/BRIQUE.md` ;
 - **—** — pas encore en TypeScript (lot 3 et écrans à venir) : partir de la brique JS ou de la fiche.
@@ -68,6 +68,7 @@ Les chemins `Source : …` désignent les fichiers d'origine dans le projet sour
 | **Leads** | Étapes (pipeline), note, ville, étiquettes, responsable (notification au responsable), prochaine action, archivage (masqué, jamais effacé), suppression définitive (admin, mot à taper), actions groupées (≤ 200), vues enregistrées | fiche | `app/v1/admin/leads`, `lib/leadFilters.js`, `lib/archivage.js` |
 | **Fil d'activité** | Tout ce qui arrive à un lead passe par un seul point (note, appel, courriel, changement d'étape, relance) ; `last_contact_at` = dernier contact **humain** seulement | fiche | `lib/leadActivity.js` |
 | **Tâches** | Échéance, responsable, faite / supprimée (journalisée), tâches en retard dans « Aujourd'hui » | fiche | `app/v1/admin/tasks` |
+| **Poste d'appel** | File du jour (en retard, du jour, à venir ; fiches de son périmètre, archivées exclues), 5 résultats (RDV pris, à rappeler, message laissé, pas de réponse, pas intéressé) avec aperçu puis écriture en **une transaction** (une étape protégée ne recule jamais, tâche de suivi au prochain jour ouvrable), bilan du jour, emplacements de scripts **vides** (« Script à recevoir », relus avant usage), brouillon de courriel après l'appel (accord de vive voix noté, jamais sans conversation, modèle injecté, rien n'est envoyé). TS seulement : `ts/src/lib/appels/` (depuis 1.6.0), mode d'emploi dans `ts/BRIQUE.md` | code (`ts/`) | voir la ligne d'origine des fichiers ; fonction `record_call_result` (`ts/supabase/migrations/0112`, à adapter) |
 | **Kanban** | Glisser-déposer entre étapes, remis en place si le serveur refuse | fiche | `components/admin/tabs/LeadsTab.jsx` |
 | **Import / export CSV** | Séparateur détecté, BOM, `;` pour Excel français ; en-têtes en français ou en clé ; attestation de consentement à l'import | fiche | `lib/csv.js`, `lib/leadCsv.js` |
 | **Score** | Règles transparentes 0-100 (pas d'IA) | fiche | `lib/scoring.js` |
