@@ -1,7 +1,7 @@
 ---
 name: nouveau-crm
 description: Démarrer un CRM, un admin ou un espace client à partir du kit CRM du dépôt methode-travail (kits/crm) — briques choisies avec l'utilisatrice, installées dans l'ordre (base et accès, puis admin, puis fonctions), adaptées et vérifiées une à une
-when_to_use: Un projet a besoin d'un admin, d'une gestion de clients ou de demandes (leads), de comptes avec rôles, de double authentification, d'un espace client, ou l'utilisatrice dit « comme le CRM de KHI » / « reprends le kit CRM »
+when_to_use: Un projet a besoin d'un admin, d'une gestion de clients ou de demandes (leads), de comptes avec rôles, de double authentification, d'un espace client, ou l'utilisatrice dit « comme le CRM d'un autre projet » / « reprends le kit CRM »
 user-invocable: true
 allowed-tools: Read, Edit, Write, Grep, Glob, Bash
 disallowed-tools: []
@@ -15,7 +15,7 @@ effort: high
 > ciblés, Déploiement). Le kit vit dans le dépôt `methode-travail`, dossier `kits/crm/` : **ajouter
 > `methode-travail` à la session** pour le lire (une session cloud ne voit que les dépôts qu'on lui ajoute).
 
-Le kit regroupe ce qu'un CRM a déjà coûté à construire sur KHI Educ : authentification et rôles, double
+Le kit regroupe ce qu'un CRM a déjà coûté à construire sur des projets clients : authentification et rôles, double
 authentification avec « se souvenir de cet appareil 30 jours », admin (coquille, confirmations, fiche en page,
 rafraîchissement après chaque modification), outillage de tests et harnais de simulation de l'admin réel.
 Il ne remplace pas la conception : pour un gros projet, la skill `nouveau-projet` passe d'abord (BRIEF, PRD…),
@@ -28,8 +28,9 @@ et ce kit sert à l'étape de construction.
 2. Le projet : `CLAUDE.md` (Fiche projet), le schéma de la base s'il existe, l'authentification en place.
    **Ne jamais écraser** un fichier du projet : fusionner, ou signaler le doublon.
 3. Pile du projet : Next.js App Router + Supabase en **JavaScript** → `auth/`, `admin/`, `tests/` ; en
-   **TypeScript strict** → `kits/crm/ts/` d'abord (lot 1 : site public, formulaires, courriels ; mode d'emploi
-   `ts/BRIQUE.md`), puis les briques JS **à traduire** pour ce qui n'existe pas encore en TS. Autre pile : le
+   **TypeScript strict** → `kits/crm/ts/` d'abord (lot 1 : site public, formulaires, courriels ; lot 2 : socle
+   de l'admin d'équipe, sans écrans ; mode d'emploi `ts/BRIQUE.md`), puis les briques JS **à traduire** pour ce
+   qui n'existe pas encore en TS (écrans, clés d'API, automatisations). Autre pile : le
    dire tout de suite ; le code ne se copie pas tel quel ; les **fiches**, les **leçons** et les **règles
    d'écran** (`admin/PATTERNS.md`) restent valables.
 
@@ -40,14 +41,23 @@ groupes, avec ce que chacune apporte en une ligne et son coût estimé (`budget-
 - **socle** (presque toujours) : accès de l'équipe et rôles, journal d'activité, double authentification,
   coquille d'admin, confirmations, outillage de tests ; **site public** : adresse du site, IP fiable,
   anti-abus, Turnstile, CSP, consentement jamais précoché, envoi de courriels, désabonnement (LCAP), garde du
-  secret cron (`ts/` en TypeScript ; en JavaScript : fiches du catalogue) ;
+  secret cron (`ts/` en TypeScript ; en JavaScript : fiches du catalogue) ; **socle admin TS** (lot 2, L0-L12) :
+  rôles et refus par défaut, entrée de l'équipe, double vérification, appareils de confiance, codes de secours,
+  verrou de compte, journal des actions, journal d'accès Loi 25, accès et effacement, conservation limitée,
+  archivage, santé + battement ;
 - **selon le besoin** : « se souvenir de cet appareil », clés d'API, espaces clients (rôles + règles de la
   base), fiche en page, assistant ;
 - **fonctions** (fiches à réécrire pour le métier) : leads, tâches, Kanban, CSV, « Aujourd'hui »,
   relances automatiques, consentement anti-pourriel, articles, vie privée.
 
 Poser les questions qui changent le code (une à la fois si possible) :
-- Qui entre dans l'admin, avec quels rôles ? Qui a le droit de supprimer définitivement ?
+- Qui entre dans l'admin, avec quels rôles ? Qui a le droit de supprimer définitivement ? (Kit TS : rôles par
+  défaut `admin` > `gestionnaire` > `employe`, paramétrables par `createRoles` / `defineAccessMatrix`, refus par
+  défaut ; la matrice d'exemple est `[à adapter]`. **Poser cette question au démarrage**, avant toute migration :
+  le `check` des rôles de `0103` en dépend.)
+- Une seule personne entre dans l'admin, sans comptes ? Voir la fiche « Admin d'un seul propriétaire » de
+  `ts/BRIQUE.md` (et ses limites) avant de choisir.
+- Combien de mois garder une demande sans activité (`RETENTION_MONTHS`, obligatoire) ?
 - Y a-t-il des clients qui se connectent (espace client) ? Avec double authentification obligatoire ?
 - « Se souvenir de cet appareil 30 jours » : pour qui, case cochée par défaut ou non ?
 - Langues de l'admin ?
@@ -60,10 +70,13 @@ schéma de la base sont dans la liste « accord avant de coder ».
 Chaque brique a un `BRIQUE.md` : fichiers, tables, variables d'environnement, dépendances, adaptation,
 vérification. Le suivre à la lettre. Ordre :
 
-0. **Projet TypeScript : `kits/crm/ts/`** avant toute route publique — migrations `0101_rate_limits.sql` et
-   `0102_lcap_desabonnement.sql` (accord ; appliquées par Camille seulement), puis `src/lib/`, puis les routes
-   (`api/desabonnement`, `api/csp-rapport`) et la CSP dans `next.config` (en **observation** d'abord), avant les
-   briques JS équivalentes à traduire.
+0. **Projet TypeScript : `kits/crm/ts/`** avant toute route publique — migrations **dans l'ordre `0101` →
+   `0111`** (**0104 avant 0105** ; accord ; appliquées par la personne qui valide seulement) ; **préalable
+   Supabase** avant d'ouvrir l'admin : inscriptions publiques **désactivées** et « Confirm email » **activé** ;
+   puis `src/lib/`, puis les routes (`api/desabonnement`, `api/csp-rapport`), la CSP dans `next.config` (en
+   **observation** d'abord) et les routes de l'admin écrites par le projet selon les règles (a)-(e) de
+   `ts/BRIQUE.md` (page des codes de secours jamais en ligne sans le verrou), avant les briques JS équivalentes
+   à traduire.
 
 1. **Base et accès** (`kits/crm/auth/`) : migrations (skill de migration du projet, ou `apply_migration`
    avec l'accord de l'utilisatrice), `lib/authServer.js`, `lib/roles.js` (**matrice à réécrire** pour les
@@ -94,7 +107,8 @@ projet (domaine, courriel, identifiant de projet Supabase, nom).
 - Pour l'admin : le harnais de simulation (`kits/crm/tests/simulation/`) joue le démarrage (chaque appel une
   seule fois) et chaque action en échec, en refus et en réussite (confirmation, message de réussite et d'erreur,
   mise à jour des autres vues).
-- Pour l'authentification et les règles de la base : agent `securite` avant la mise en production ; test des
+- Pour l'authentification et les règles de la base : agent `securite` **avant la mise en ligne de tout admin**
+  (socle TS compris : rôles, MFA, codes de secours, verrou, effacement) ; test des
   règles d'accès dans une transaction annulée (`LECONS.md`, leçon 3).
 - `qa-agent` en fin de lot, puis la skill `livrer`.
 
