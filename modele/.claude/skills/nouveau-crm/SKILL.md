@@ -29,7 +29,8 @@ et ce kit sert à l'étape de construction.
    **Ne jamais écraser** un fichier du projet : fusionner, ou signaler le doublon.
 3. Pile du projet : Next.js App Router + Supabase en **JavaScript** → `auth/`, `admin/`, `tests/` ; en
    **TypeScript strict** → `kits/crm/ts/` d'abord (lot 1 : site public, formulaires, courriels ; lot 2 : socle
-   de l'admin d'équipe, sans écrans ; mode d'emploi `ts/BRIQUE.md`), puis les briques JS **à traduire** pour ce
+   de l'admin d'équipe, sans écrans ; poste d'appel depuis 1.6.0 : file du jour, 5 résultats en une transaction,
+   scripts vides « à recevoir », brouillon de courriel après l'appel, sans écrans ; mode d'emploi `ts/BRIQUE.md`), puis les briques JS **à traduire** pour ce
    qui n'existe pas encore en TS (écrans, clés d'API, automatisations). Autre pile : le
    dire tout de suite ; le code ne se copie pas tel quel ; les **fiches**, les **leçons** et les **règles
    d'écran** (`admin/PATTERNS.md`) restent valables.
@@ -71,7 +72,9 @@ Chaque brique a un `BRIQUE.md` : fichiers, tables, variables d'environnement, d�
 vérification. Le suivre à la lettre. Ordre :
 
 0. **Projet TypeScript : `kits/crm/ts/`** avant toute route publique — migrations **dans l'ordre `0101` →
-   `0111`** (**0104 avant 0105** ; accord ; appliquées par la personne qui valide seulement) ; **préalable
+   `0111`** (**0104 avant 0105** ; accord ; appliquées par la personne qui valide seulement), puis `0112` si le
+   projet prend le poste d'appel (listes `[à adapter]` alignées sur sa `ConfigAppels`, routes selon les règles
+   (f)-(h) de `ts/BRIQUE.md`, scripts du client relus par un humain avant usage) ; **préalable
    Supabase** avant d'ouvrir l'admin : inscriptions publiques **désactivées** et « Confirm email » **activé** ;
    puis `src/lib/`, puis les routes (`api/desabonnement`, `api/csp-rapport`), la CSP dans `next.config` (en
    **observation** d'abord) et les routes de l'admin écrites par le projet selon les règles (a)-(e) de
