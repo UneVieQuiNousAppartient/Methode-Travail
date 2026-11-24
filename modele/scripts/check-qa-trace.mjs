@@ -9,7 +9,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { lireConfig, nonCouverts, qaRequis } from "./lib-controles.mjs";
+import { configDepuis, ficheModifiee, nonCouverts, qaRequis, reunir } from "./lib-controles.mjs";
 
 const git = (args) => execFileSync("git", args, { encoding: "utf8" });
 
@@ -20,8 +20,16 @@ for (let i = 0; i < morceaux.length; i += 2) {
     const [, , , apres, statut] = morceaux[i].split(" ");
     indexes[morceaux[i + 1]] = statut === "D" ? "supprime" : apres;
 }
-const cfg = lireConfig(git(["rev-parse", "--show-toplevel"]).trim());
-if (!qaRequis(Object.keys(indexes), cfg)) process.exit(0);
+// Fiche projet lue à trois endroits (dernier commit, index, disque) et réunie : modifier CLAUDE.md sans l'indexer, ou
+// l'indexer dans ce commit, ne retire aucune protection ; et un changement de la Fiche rend CLAUDE.md sensible.
+const racine = git(["rev-parse", "--show-toplevel"]).trim();
+const lireRef = (ref) => { try { return execFileSync("git", ["show", `${ref}CLAUDE.md`], { cwd: racine, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }); } catch { return ""; } };
+let disque = "";
+try { disque = readFileSync(join(racine, "CLAUDE.md"), "utf8"); } catch { /* absent */ }
+const [ficheHead, ficheIndex] = [lireRef("HEAD:"), lireRef(":")];
+const cfg = reunir(...[ficheHead, ficheIndex, disque].map(configDepuis));
+const forces = "CLAUDE.md" in indexes && ficheModifiee(ficheHead, ficheIndex) ? ["CLAUDE.md"] : [];
+if (!qaRequis(Object.keys(indexes), cfg, forces)) process.exit(0);
 
 let trace = null;
 try {
@@ -29,7 +37,7 @@ try {
 } catch {
     // pas de trace : tout est non couvert
 }
-const manquants = nonCouverts(indexes, trace);
+const manquants = nonCouverts(indexes, trace, forces);
 if (manquants.length === 0) process.exit(0);
 
 const bloque = Boolean(process.env.CLAUDECODE);

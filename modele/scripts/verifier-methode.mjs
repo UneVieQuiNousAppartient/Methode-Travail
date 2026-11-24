@@ -171,6 +171,13 @@ if (!existsSync(fichierClaude)) {
             if (!(cle in fiche)) { erreur(`clé « ${cle} » absente de la Fiche projet`); continue; }
             if (NON_REMPLI.test(fiche[cle])) nonRemplies.push([cle, obligatoire]);
         }
+        // Les contrôles ne lisent que les chemins entre accents graves : une valeur sans eux les désactive en silence.
+        for (const cle of ["Routes publiques", "Chemins sensibles"]) {
+            const v = fiche[cle];
+            if (v && !NON_REMPLI.test(v) && !/^\s*[—-]\s*$/.test(v) && !/`[^`]+`/.test(v)) {
+                erreur(`« ${cle} » : écrire chaque chemin entre accents graves (ex. \`src/lib/auth/\`), sinon les contrôles l'ignorent`);
+            }
+        }
         if (!nonRemplies.length) ok("Fiche projet remplie");
         else if (GABARIT) ok(`Fiche projet présente, ${nonRemplies.length} clé(s) à remplir à l'installation (attendu dans le gabarit)`);
         else {

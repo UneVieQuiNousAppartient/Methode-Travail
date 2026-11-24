@@ -20,8 +20,12 @@ export const CODE_DEFAUT = ["src/", "supabase/", ".claude/"];
  */
 export const SENSIBLES_COMMUNS = [
     ".githooks/", ".claude/settings.json", ".github/workflows/", "scripts/lib-controles.mjs", "scripts/check-",
-    "scripts/hook-", "scripts/tests/", "package.json",
+    "scripts/hook-", "scripts/tests/", "package.json", "pyproject.toml", "requirements.txt", "composer.json", "Gemfile",
+    "go.mod", "Cargo.toml",
 ];
+
+/** Clés de la Fiche projet lues par les contrôles : les changer change ce que le verrou protège. */
+export const CLES_CONTROLES = ["Dossiers de code", "Routes publiques", "Chemins sensibles"];
 
 /** Valeur d'une clé de la Fiche projet (texte de CLAUDE.md) ; null si absente ou non remplie. */
 export function valeurFiche(texteClaude, cle) {
@@ -48,6 +52,20 @@ export function configDepuis(texteClaude) {
     };
 }
 
+/**
+ * La Fiche projet a-t-elle changé sur une clé lue par les contrôles ? Si oui, CLAUDE.md devient un fichier sensible
+ * du commit (sinon on pourrait retirer un chemin sensible en un commit de .md, que le verrou ne compte jamais —
+ * revue indépendante de la 1.7.0, 24 nov. 2026).
+ */
+export const ficheModifiee = (avant, apres) => CLES_CONTROLES.some((c) => valeurFiche(avant, c) !== valeurFiche(apres, c));
+
+/** Réunion de plusieurs configurations (Fiche de HEAD, de l'index, du disque) : le plus protecteur l'emporte. */
+export const reunir = (...cfgs) => ({
+    code: [...new Set(cfgs.flatMap((c) => c.code))],
+    routes: [...new Set(cfgs.flatMap((c) => c.routes))],
+    sensibles: [...new Set(cfgs.flatMap((c) => c.sensibles))],
+});
+
 /** Configuration lue dans CLAUDE.md à la racine du projet (repli sur les valeurs par défaut si illisible). */
 export function lireConfig(racine) {
     let texte = "";
@@ -57,7 +75,10 @@ export function lireConfig(racine) {
 
 /** `p` est-il dans l'un des dossiers (ou est-il l'un des fichiers) de la liste ? */
 export function dansListe(p, liste) {
-    return liste.some((c) => (c.endsWith("/") ? p.startsWith(c) : p === c || p.startsWith(`${c}/`) || (/[-_]$/.test(c) && p.startsWith(c))));
+    return liste.some((c) => (c.endsWith("/") ? p.startsWith(c)
+        : p === c || p.startsWith(`${c}/`) || (/[-_]$/.test(c) && p.startsWith(c))
+            // nom de fichier seul (ex. `middleware.ts`) : à n'importe quelle profondeur (`src/middleware.ts`)
+            || (!c.includes("/") && p.endsWith(`/${c}`))));
 }
 
 /** Fichier de méthode (Markdown) : jamais compté pour le seuil qa-agent, jamais exigé dans la trace. */
@@ -66,8 +87,12 @@ export const estMethode = (p) => p.endsWith(".md");
 /** Fichier sensible : un seul suffit à exiger qa-agent (agent-workflow.md, « Quand ça s'applique »). */
 export const estSensible = (p, cfg) => dansListe(p, cfg.sensibles);
 
-/** Le commit exige-t-il une trace qa-agent ? 2 fichiers hors .md, ou 1 fichier sensible. */
-export function qaRequis(fichiers, cfg) {
+/**
+ * Le commit exige-t-il une trace qa-agent ? 2 fichiers hors .md, ou 1 fichier sensible. `forces` : fichiers .md
+ * traités comme du code (CLAUDE.md quand sa Fiche change, voir ficheModifiee).
+ */
+export function qaRequis(fichiers, cfg, forces = []) {
+    if (fichiers.some((p) => forces.includes(p))) return true;
     const hors = fichiers.filter((p) => !estMethode(p));
     return hors.length >= 2 || hors.some((p) => estSensible(p, cfg));
 }
@@ -76,9 +101,9 @@ export function qaRequis(fichiers, cfg) {
  * Fichiers du commit que la trace ne couvre pas : `indexes` = { chemin: empreinte de l'index ou "supprime" },
  * `trace` = { chemin: empreinte vue par qa-agent }. Les .md ne sont jamais exigés.
  */
-export function nonCouverts(indexes, trace) {
+export function nonCouverts(indexes, trace, forces = []) {
     return Object.entries(indexes)
-        .filter(([p]) => !estMethode(p))
+        .filter(([p]) => !estMethode(p) || forces.includes(p))
         .filter(([p, empreinte]) => !trace || trace[p] !== empreinte)
         .map(([p]) => p);
 }
@@ -166,5 +191,5 @@ export function sectionsSemblables(suivi, chemin, max = 3) {
 
 /** Fichier de code compté par « moins de code » : dans les dossiers de code, extension de code, hors tests et données. */
 export const estCodeCompte = (p, cfg) =>
-    dansListe(p, cfg.code) && /\.(tsx?|jsx?|mjs|cjs|css|scss|sql|py|rb|php|vue|svelte|astro)$/.test(p)
+    !p.startsWith(".claude/") && dansListe(p, cfg.code) && /\.(tsx?|jsx?|mjs|cjs|css|scss|sql|py|rb|php|vue|svelte|astro)$/.test(p)
     && !/(\/data\/|\/__tests__\/|\.(test|spec)\.[a-z]+$)/.test(p);

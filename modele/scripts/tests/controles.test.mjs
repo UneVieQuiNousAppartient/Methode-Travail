@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-    configDepuis, manquesLivraison, nonCouverts, nouveauxEcrans, pagesMaquette, qaRequis, sectionsSemblables, valeurFiche,
+    configDepuis, dansListe, ficheModifiee, manquesLivraison, nonCouverts, nouveauxEcrans, pagesMaquette, qaRequis, sectionsSemblables, valeurFiche,
     verdictQa,
 } from "../lib-controles.mjs";
 import { analyser as analyserTaille } from "../check-taille-diff.mjs";
@@ -66,6 +66,19 @@ test("Fiche projet : valeurs lues, non remplies ignorées, repli sur les défaut
     assert.deepEqual(configDepuis("## Fiche projet\n| Dossiers de code | `app/` |\n| Routes publiques | — |\n").routes, []);
 });
 
+test("listes de la fiche : dossiers, fichiers exacts, nom de fichier à toute profondeur, préfixe", () => {
+    assert.equal(dansListe("src/a.ts", ["src/"]), true);
+    assert.equal(dansListe("src2/a.ts", ["src/"]), false);
+    assert.equal(dansListe("supabase/x.sql", ["supabase"]), true, "dossier sans / final");
+    assert.equal(dansListe("supabase-old/x.sql", ["supabase"]), false);
+    assert.equal(dansListe("src/middleware.ts", ["middleware.ts"]), true, "nom seul : toute profondeur");
+    assert.equal(dansListe("src/lib/middleware.ts.bak", ["middleware.ts"]), false);
+    assert.equal(dansListe("src/app/x.ts", ["src/app/x.ts"]), true, "fichier exact");
+    assert.equal(dansListe("scripts/check-rules.mjs", ["scripts/check-"]), true, "préfixe terminé par -");
+    assert.deepEqual(configDepuis("## Fiche projet\n| Chemins sensibles | src/lib/auth/ |\n").sensibles.length,
+        configDepuis("").sensibles.length, "sans accents graves : ignoré (verifier-methode le signale)");
+});
+
 test("seuil qa-agent : 2 fichiers hors .md ou 1 sensible ; les .md seuls passent", () => {
     assert.equal(qaRequis(["src/a.ts", "src/b.ts"], CFG), true);
     assert.equal(qaRequis(["middleware.ts"], CFG), true);
@@ -78,6 +91,24 @@ test("seuil qa-agent : 2 fichiers hors .md ou 1 sensible ; les .md seuls passent
     }
     assert.equal(qaRequis(["src/app/page.tsx"], CFG), false);
     assert.equal(qaRequis(["src/lib/auth/x.ts"], configDepuis("")), false, "sans fiche : seuls les sensibles communs");
+});
+
+test("verrou : la Fiche projet modifiée (sur disque, à l'index ou dans le commit) ne retire aucune protection", () => {
+    const { d, g, ecrire } = depot();
+    const claude = { CLAUDECODE: "1" };
+    const verrou = () => lancer("check-qa-trace.mjs", "", { cwd: d, env: claude }).status;
+    ecrire("src/lib/auth/x.ts", "x\n");
+    g("add", "src/lib/auth/x.ts");
+    assert.equal(verrou(), 1, "fichier sensible seul : refusé");
+    const sansSensibles = FICHE.replace(/\| Chemins sensibles \|.*\|/, "| Chemins sensibles | — |");
+    ecrire("CLAUDE.md", sansSensibles);
+    assert.equal(verrou(), 1, "Fiche modifiée sur le disque seulement : toujours refusé");
+    g("add", "CLAUDE.md");
+    assert.equal(verrou(), 1, "Fiche modifiée dans le même commit : toujours refusé");
+    g("reset", "-q", "src/lib/auth/x.ts");
+    assert.equal(verrou(), 1, "commit de CLAUDE.md seul qui change la Fiche : exige qa-agent");
+    assert.equal(ficheModifiee(FICHE, FICHE + "\nautre texte\n"), false, "texte hors des clés lues : libre");
+    assert.equal(ficheModifiee(FICHE, sansSensibles), true);
 });
 
 test("verdict qa-agent : le dernier compte", () => {
@@ -293,7 +324,9 @@ test("taille du diff : code compté selon la fiche ; fichier long qui grossit et
 // ── Règles d'architecture de check-rules ────────────────────────────────────────────────────────────────────
 test("check-rules : règles d'architecture actives seulement avec leurs listes ; liste illisible = échec", () => {
     const { d, g, ecrire } = depot();
-    const regles = (...a) => spawnSync("node", [join(SCRIPTS, "check-rules.mjs"), "--racine", d, ...a], { encoding: "utf8" });
+    // --seulement : le test ne dépend pas des règles propres au projet qui a copié ce fichier.
+    const regles = () => spawnSync("node", [join(SCRIPTS, "check-rules.mjs"), "--racine", d, "--seulement",
+        "date-sans-fuseau,couleur-hors-palette,acces-base-hors-domaine,fichier-trop-long"], { encoding: "utf8" });
     ecrire("src/app/a.tsx", "const c = '#123456';\nconst x = supabase.from('clients').select();\n" + "// l\n".repeat(450));
     ecrire("src/lib/clients.ts", "export const lire = () => supabase.from('clients').select();\n");
     ecrire("src/lib/date.ts", "export const h = (d) => d.toLocaleTimeString('fr-CA', {\n  hour: '2-digit',\n});\n");

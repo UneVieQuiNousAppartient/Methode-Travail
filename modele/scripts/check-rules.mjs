@@ -10,6 +10,7 @@
 //   node scripts/check-rules.mjs                  analyse le projet (code 1 si une règle est violée)
 //   node scripts/check-rules.mjs --racine <dir>   analyse un autre dossier (tests du script)
 //   node scripts/check-rules.mjs --liste          affiche les règles actives et leur incident
+//   node scripts/check-rules.mjs --seulement a,b  ne lance que ces règles (tests)
 //
 // Exception ponctuelle et assumée sur une ligne : y écrire `regle-ok: <id>` en commentaire,
 // avec la raison. Une exception sans raison se refuse en revue.
@@ -40,7 +41,7 @@ const VERROUS = /(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|poetry\.lo
 //                                       infraction tolérés (« acces_base », « fichiers_longs »), « lignes_max » ;
 //   scripts/couleurs-autorisees.json    palette du projet (« couleurs ») : vide = règle en attente de la palette.
 // Fichier absent : règle inactive (projet qui ne l'a pas encore adoptée). Fichier illisible : check-rules échoue.
-const CODE = lireConfig(RACINE).code;
+const CODE = lireConfig(RACINE).code.filter((c) => !c.startsWith(".claude"));
 const illisibles = [];
 function lireListe(nom) {
     const p = path.join(RACINE, "scripts", nom);
@@ -55,7 +56,7 @@ function lireListe(nom) {
 const ARCHI = (() => {
     const j = lireListe("architecture-existant.json");
     return j && {
-        domaine: j.dossiers_domaine ?? [],
+        domaine: (j.dossiers_domaine ?? []).map((d) => (d.endsWith("/") ? d : `${d}/`)),
         acces: new Set(j.acces_base ?? []),
         longs: new Set(j.fichiers_longs ?? []),
         lignesMax: Number(j.lignes_max) || 400,
@@ -244,6 +245,7 @@ const RULES = [
 function* fichiers(dossier) {
     let entrees;
     try {
+        if (statSync(dossier).isFile()) { yield dossier; return; } // une entrée de la Fiche peut être un fichier
         entrees = readdirSync(dossier, { withFileTypes: true });
     } catch {
         return; // dossier absent : la règle ne s'applique pas encore
@@ -302,6 +304,12 @@ if (args.includes("--liste")) {
 if (illisibles.length) {
     console.error(`check-rules : ${illisibles.join(" ; ")} — corriger le JSON avant de continuer.`);
     process.exit(1);
+}
+// --seulement id1,id2 : ne lancer que ces règles (tests des contrôles, indépendants des règles propres au projet).
+const iSeul = args.indexOf("--seulement");
+if (iSeul >= 0) {
+    const ids = new Set(String(args[iSeul + 1] ?? "").split(","));
+    for (let k = RULES.length - 1; k >= 0; k--) if (!ids.has(RULES[k].id)) RULES.splice(k, 1);
 }
 const violations = analyser();
 if (!violations.length) {

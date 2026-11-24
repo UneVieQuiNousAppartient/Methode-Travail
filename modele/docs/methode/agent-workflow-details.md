@@ -11,9 +11,12 @@ Le seuil « 2 fichiers ou plus, ou 1 fichier sensible » n'est pas un jugement d
 juge toujours que « ce n'est pas la peine ». Depuis la 1.7.0, il est en plus **vérifié par le hook Git** (§ 4) : la
 liste des fichiers sensibles vient de la ligne « Chemins sensibles » de la Fiche projet, à laquelle s'ajoutent
 toujours les contrôles eux-mêmes (`.githooks/`, `scripts/check-*`, `scripts/hook-*`, `scripts/lib-controles.mjs`,
-`scripts/tests/`), `.claude/settings.json`, `.github/workflows/` et `package.json` — sinon on pourrait affaiblir un
-contrôle en un commit d'un fichier (revue `qa-agent` de VieSolution, 14 nov. 2026). Les fichiers `.md` ne comptent
-jamais.
+`scripts/tests/`), `.claude/settings.json`, `.github/workflows/` et les fichiers de dépendances (`package.json`,
+`pyproject.toml`, `requirements.txt`, `composer.json`, `Gemfile`, `go.mod`, `Cargo.toml`) — sinon on pourrait
+affaiblir un contrôle en un commit d'un fichier (revue `qa-agent` de VieSolution, 14 nov. 2026). Les fichiers `.md`
+ne comptent pas, **sauf `CLAUDE.md` quand sa Fiche change** une clé lue par les contrôles : la Fiche est lue au
+dernier commit, à l'index et sur le disque, et la plus protectrice l'emporte (revue de la 1.7.0, 24 nov. 2026). Un
+chemin s'écrit entre accents graves ; un nom de fichier seul (`middleware.ts`) vaut à toute profondeur.
 
 ## § 2. Réutiliser avant de construire
 

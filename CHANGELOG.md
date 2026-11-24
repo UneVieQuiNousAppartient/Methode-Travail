@@ -26,7 +26,7 @@ nouvelle clé facultative « Chemins sensibles ») par `scripts/lib-controles.mj
 | `scripts/hook-rappel-skills.mjs` | même chemin, 14 nov. 2026 | À la première modification d'un dossier de code : rappel si aucune skill n'est chargée, et au plus 3 tâches semblables déjà faites (au suivi). |
 | `scripts/check-livraison-pr.mjs` | même chemin, 14 nov. 2026 | En CI, refuse une PR qui touche le code sans entrée au suivi ni `docs/ETAT-ACTUEL.md` à jour ; avertit pour une page `maquette-*` restante, un nouvel écran ou > 800 lignes sans `IMPLEMENTATION-PLAN.md`. |
 | `scripts/check-skills-agents.mjs` | même chemin, 6 nov. 2026 | Signale une skill demandée par un agent mais introuvable (elle manque sinon sans aucun message). |
-| `scripts/lib-controles.mjs` + `scripts/tests/controles.test.mjs` | mêmes chemins, 14 nov. 2026 | Cœur commun des contrôles, **généralisé** (chemins lus dans la Fiche projet) ; 14 tests (`node --test`), un cas bloqué et un cas qui passe par contrôle. |
+| `scripts/lib-controles.mjs` + `scripts/tests/controles.test.mjs` | mêmes chemins, 14 nov. 2026 | Cœur commun des contrôles, **généralisé** (chemins lus dans la Fiche projet ; un nom de fichier seul, ex. `middleware.ts`, vaut à toute profondeur ; fichiers de dépendances Python, PHP, Ruby, Go, Rust sensibles comme `package.json`) ; 16 tests (`node --test`), un cas bloqué et un cas qui passe par contrôle. |
 | 5 skills copiées avec `SOURCE.md` : `architecture`, `tech-debt` (Anthropic), `frontend-design` (Anthropic), `web-design-guidelines`, `vercel-react-best-practices` (Vercel) | `.claude/skills/`, 5-11 nov. 2026 | Décisions d'architecture, dette des fichiers touchés, direction visuelle, revue d'interface et d'accessibilité, bonnes pratiques React. La note propre à VieSolution de chaque `SOURCE.md` est devenue une note générale. `vercel-react-best-practices` : projet React seulement. |
 | `docs/methode/agent-workflow-details.md`, `budget-jetons-details.md`, `suivi-taches-details.md` | mêmes chemins, 14-15 nov. 2026 | Le détail et les raisons des règles, lus seulement au besoin ; **réécrits** sans les anecdotes de VieSolution (seuls quelques constats datés expliquent une règle). |
 
@@ -44,7 +44,7 @@ Demande de Camille (24 nov. 2026) : « je ne veux plus recommencer ces étapes, 
 ### Commun à adapter (forme commune, contenu du projet)
 
 - **`scripts/check-rules.mjs`** (VieSolution, 4-6 nov. 2026) : le moteur passe aux règles l'index de la ligne et le
-  fichier entier ; 4 règles reprises — `date-sans-fuseau` (toujours active), `fichier-trop-long`,
+  fichier entier, accepte un fichier comme entrée de « Dossiers de code » et l'option `--seulement <ids>` (tests) ; 4 règles reprises — `date-sans-fuseau` (toujours active), `fichier-trop-long`,
   `acces-base-hors-domaine`, `couleur-hors-palette` — qui analysent les « Dossiers de code ». Leurs listes sont deux
   gabarits **vides** : `scripts/architecture-existant.json` (dossiers où la base peut être lue, infractions déjà là,
   `lignes_max`) et `scripts/couleurs-autorisees.json` (palette). Fichier absent ou liste vide : règle inactive ;
@@ -71,6 +71,21 @@ Demande de Camille (24 nov. 2026) : « je ne veux plus recommencer ces étapes, 
 - **`exemples/`** : `ci-changes.yml` gagne un job `methode` qui tourne toujours (tests des contrôles, contrôle de
   livraison de la PR) ; `ci-staging-smoke.yml` garde le navigateur de Playwright en cache.
 
+### Corrigé après la revue indépendante (Opus, lecture seule, 24 nov. 2026)
+
+- **Contournement du verrou par `CLAUDE.md`** (bloquant, nouveau avec la généralisation) : la liste sensible venant de
+  la Fiche, retirer une ligne de `CLAUDE.md` (un `.md`, jamais compté) suffisait à laisser passer un fichier sensible.
+  Désormais `check-qa-trace.mjs` réunit la Fiche du dernier commit, de l'index et du disque, et un commit qui change
+  une clé lue par les contrôles (« Dossiers de code », « Routes publiques », « Chemins sensibles ») exige `qa-agent`
+  sur `CLAUDE.md`. Test ajouté ; mutation (Fiche lue sur le disque seulement) vue en échec.
+- `middleware.ts` écrit seul dans la Fiche ne protégeait pas `src/middleware.ts` → un nom de fichier seul vaut à
+  toute profondeur (test et mutation).
+- Une valeur de « Routes publiques » ou « Chemins sensibles » sans accents graves était ignorée en silence →
+  `verifier-methode.mjs` la refuse (✖).
+- Le test des règles d'architecture lançait aussi les règles propres au projet → `check-rules.mjs --seulement`.
+- `dossiers_domaine` sans `/` final normalisé ; `.claude/` (repli par défaut des dossiers de code) exclu du comptage
+  « moins de code » et des règles d'architecture.
+
 ### Laissé de côté (propre à VieSolution)
 
 AMF, estimateurs, ABF (`scripts/abf-parite/`), Loi 25 propre au produit, règles `etape-dossier-directe` et
@@ -84,8 +99,10 @@ React) n'a pas changé depuis le 31 oct. : non repris dans ce lot.
 
 ### Vérifié
 
-- `node --test modele/scripts/tests/controles.test.mjs` : 14 tests au vert ; deux mutations (fichier sensible non
-  compté, tolérance d'architecture ignorée) vues en échec, puis remises.
+- `node --test modele/scripts/tests/controles.test.mjs` : 16 tests au vert ; quatre mutations (fichier sensible non
+  compté, tolérance d'architecture ignorée, Fiche lue sur le disque seulement, nom de fichier seul ignoré) vues en
+  échec, puis remises.
+- `kits/crm/ts` (non modifié) : `npm run verify` dans une copie `mktemp -d`, 41 fichiers, 793 tests au vert.
 - `node modele/scripts/verifier-methode.mjs --gabarit` (depuis `modele/`) : 0 ✖ ; 3 ⚠ attendus (dossiers de code
   absents du gabarit ; `frontend-design/SOURCE.md` sans dépôt ni commit, copiée d'un plugin installé).
 - YAML des deux exemples validé.
@@ -107,7 +124,8 @@ au passage (étape 4). Avec la skill `methode-a-jour`, ou à la main :
 2. **Copier tels quels** (s'ils sont absents) : `scripts/lib-controles.mjs`, `hook-qa-trace.mjs`,
    `check-qa-trace.mjs`, `hook-garde-git.mjs`, `check-taille-diff.mjs`, `hook-rappel-tache.mjs`,
    `hook-rappel-skills.mjs`, `check-livraison-pr.mjs`, `check-skills-agents.mjs`, `comparer-methode.mjs`,
-   `scripts/tests/controles.test.mjs` ; `.claude/skills/tache/`, `methode-a-jour/`, `remonter-methode/` ; les 5 skills
+   `scripts/tests/controles.test.mjs` ; **`scripts/verifier-methode.mjs`** (remplacé par celui du modèle : il contrôle
+   la 1.7.0) ; `.claude/skills/tache/`, `methode-a-jour/`, `remonter-methode/` ; les 5 skills
    copiées avec leur `SOURCE.md` (retirer `vercel-react-best-practices` hors React) ; `docs/methode/*-details.md`
    (fusionner si le projet en a déjà).
 3. **Fusionner** (garder le contenu du projet, ajouter ce qui manque) :
@@ -116,16 +134,18 @@ au passage (étape 4). Avec la skill `methode-a-jour`, ou à la main :
    - `.githooks/pre-commit` : blocs `check-taille-diff`, `check-qa-trace`, `check-livraison-pr --maquettes` ;
    - `scripts/session-start.sh` : étape 0 (`git config core.hooksPath .githooks`) et étape 4 (`check-skills-agents`) ;
      un projet qui a d'autres hooks Git (husky…) les appelle depuis `.githooks/pre-commit` ;
-   - `CLAUDE.md` : ligne `tache` / registre dans l'ordre de lecture, clé **« Chemins sensibles »** remplie
-     (authentification, accès, base, paiement ; « — » sinon), paragraphe des hooks Git ;
+   - `CLAUDE.md` : ligne `tache` / registre dans l'ordre de lecture, clé **« Chemins sensibles »** remplie, chaque
+     chemin entre accents graves (authentification, accès, base, paiement ; « — » sinon), paragraphe des hooks Git ;
    - `.claude/agents/qa-agent.md` : la dernière ligne `VERDICT QA : OK/KO` est **obligatoire** (sans elle, le verrou
      refuse tous les commits), plus l'outil `Skill`, `maxTurns: 45` et la partie « Moins de code » ;
-     `ux-agent.md`, `ux-designer.md`, `securite.md` : voir « Commun à adapter » ;
+     `ux-agent.md`, `ux-designer.md`, `securite.md` : voir « Commun à adapter » ; skill `nouvelle-page` (étape 0 :
+     maquette en images ; modèle de `ux-agent`) ;
    - `.claude/rules/agent-workflow.md`, `budget-jetons.md`, `suivi-taches.md` : nouvelles sections, en gardant les
      listes propres au projet (agents, constats) ; `.claude/skills/REGISTRE.md` : partir du gabarit, ajouter les
      skills et plugins du projet.
-4. **`scripts/check-rules.mjs`** : reprendre du modèle le bloc « Règles d'architecture », l'appel
-   `regle.motif(ligne, rel, i, lignes)`, l'arrêt sur liste illisible et les règles absentes du projet ; garder ses
+4. **`scripts/check-rules.mjs`** : reprendre du modèle l'import de `lib-controles.mjs`, le bloc « Règles
+   d'architecture », l'appel `regle.motif(ligne, rel, i, lignes)`, `fichiers()` (fichier accepté), l'option
+   `--seulement` (utilisée par les tests), l'arrêt sur liste illisible et les règles absentes du projet ; garder ses
    règles propres. Puis **remplir les listes** : copier les deux gabarits JSON, mettre `dossiers_domaine` (ex.
    `["src/lib/"]`) et la palette du guide d'interface ; lancer `node scripts/check-rules.mjs` ; les fichiers déjà en
    infraction vont dans `acces_base` / `fichiers_longs` (avec l'accord de la personne qui valide), les dates sans
