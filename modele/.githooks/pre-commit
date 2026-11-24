@@ -8,8 +8,14 @@
 # 3. Règles métier et sécurité (scripts/check-rules.mjs) : BLOQUANT.
 # 4. (Facultatif, projets à plusieurs agents) périmètre de chacun : voir
 #    exemples/check-ownership.mjs du dépôt methode-travail, puis décommenter.
+# 5. qa-agent (méthode 1.7.0) : 2 fichiers ou plus hors .md, ou 1 fichier sensible (« Chemins sensibles » de la
+#    Fiche projet), exigent la trace écrite à la fin d'un qa-agent « VERDICT QA : OK »
+#    (scripts/check-qa-trace.mjs). BLOQUANT en session Claude, avertissement au poste.
+# 6. Moins de code (scripts/check-taille-diff.mjs) et pages d'essai de maquette restantes
+#    (scripts/check-livraison-pr.mjs --maquettes) : avertissements, jamais bloquants.
 #
-# Contournement ponctuel, à justifier dans le message de commit : git commit --no-verify
+# Aucun contournement : un blocage se corrige, il ne se saute pas (--no-verify refusé par
+# scripts/hook-garde-git.mjs dans les sessions Claude).
 
 racine=$(git rev-parse --show-toplevel) || exit 0
 cd "$racine" || exit 0
@@ -21,6 +27,10 @@ fi
 
 if [ -f scripts/check-suivi.js ]; then
   node scripts/check-suivi.js --hook || true
+fi
+
+if [ -f scripts/check-taille-diff.mjs ]; then
+  node scripts/check-taille-diff.mjs || true
 fi
 
 if [ -f scripts/check-secrets-suivis.mjs ]; then
@@ -35,6 +45,17 @@ if [ -f scripts/check-rules.mjs ]; then
     echo "[pre-commit] commit refusé : règle métier violée (voir ci-dessus, .claude/rules/regles-metier.md)" >&2
     exit 1
   }
+fi
+
+if [ -f scripts/check-qa-trace.mjs ]; then
+  node scripts/check-qa-trace.mjs || {
+    echo "[pre-commit] commit refusé : qa-agent n'a pas vérifié ces fichiers (voir ci-dessus)" >&2
+    exit 1
+  }
+fi
+
+if [ -f scripts/check-livraison-pr.mjs ]; then
+  node scripts/check-livraison-pr.mjs --maquettes || true
 fi
 
 # if [ -f scripts/check-ownership.mjs ]; then

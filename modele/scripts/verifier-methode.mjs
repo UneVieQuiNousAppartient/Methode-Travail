@@ -10,7 +10,10 @@
 //   5. dossiers de code (Fiche projet, sinon CHEMINS_CODE de check-suivi.js) existants ;
 //   6. skills copiées d'un autre dépôt : SOURCE.md présent et complet ;
 //   7. hook Git activé (core.hooksPath), garde-fous appelés par la Vérification, version de la
-//      méthode notée dans docs/ETAT-ACTUEL.md, registre docs/ERREURS-CONNUES.md présent.
+//      méthode notée dans docs/ETAT-ACTUEL.md, registre docs/ERREURS-CONNUES.md présent ;
+//   8. contrôles mécaniques (méthode 1.7.0) : scripts présents, hooks branchés (verrou qa-agent, garde Git,
+//      rappels), listes d'architecture lisibles, verdict de qa-agent, registre des skills à jour, tests des
+//      contrôles (node --test scripts/tests/controles.test.mjs) au vert.
 //
 // Usage :
 //   node scripts/verifier-methode.mjs             projet installé : tout manque est une erreur
@@ -45,6 +48,7 @@ const CLES_FICHE = [
     ["Déploiement", true],
     ["Contrôle après déploiement", false],
     ["Routes publiques", false],
+    ["Chemins sensibles", false],
     ["Sitemap et navigation", false],
     ["Langues", false],
     ["Valide les livraisons", true],
@@ -83,6 +87,17 @@ if (!existsSync(fichierReglages)) {
             .map((h) => h.command || "");
         const scripts = [...new Set(commandes.flatMap((c) => [...c.matchAll(/scripts\/[\w.-]+/g)].map((m) => m[0])))];
         for (const s of scripts) (existsSync(path.join(RACINE, s)) ? ok : erreur)(`hook → ${s}${existsSync(path.join(RACINE, s)) ? "" : " : fichier absent"}`);
+        const hooksDe = (evt) => (reglages.hooks?.[evt] || []).map((g) => `${g.matcher ?? ""} ${(g.hooks || []).map((h) => h.command).join(" ")}`).join(" ");
+        const attendus = [
+            ["SubagentStart", /qa-agent .*hook-qa-trace/, "instantané de qa-agent (verrou qa-agent)"],
+            ["SubagentStop", /qa-agent .*hook-qa-trace/, "trace de qa-agent (verrou qa-agent)"],
+            ["PreToolUse", /Bash .*hook-garde-git/, "garde Git (--no-verify refusé)"],
+            ["UserPromptSubmit", /hook-rappel-tache/, "rappel du parcours `tache`"],
+            ["PostToolUse", /hook-rappel-skills/, "rappel des skills et des tâches semblables"],
+        ];
+        for (const [evt, motif, role] of attendus) {
+            motif.test(hooksDe(evt)) ? ok(`hook ${evt} : ${role}`) : avert(`hook ${evt} absent : ${role} (gabarit : modele/.claude/settings.json, méthode 1.7.0)`);
+        }
         if (!reglages.env?.CLAUDE_CODE_SUBAGENT_MODEL) avert("env.CLAUDE_CODE_SUBAGENT_MODEL absent (agents sans modèle par défaut)");
     } catch (e) {
         erreur(`JSON invalide : ${e.message}`);
@@ -128,7 +143,7 @@ for (const f of lister(path.join(RACINE, ".githooks"), (p) => statSync(p).isFile
     const r = spawnSync("sh", ["-n", f], { encoding: "utf8" });
     r.status === 0 ? ok(`sh -n ${rel(f)}`) : erreur(`sh -n ${rel(f)} : ${(r.stderr || "").trim()}`);
 }
-for (const f of lister(dossierScripts, (p) => /\.(m?js|cjs)$/.test(p))) {
+for (const f of [...lister(dossierScripts, (p) => /\.(m?js|cjs)$/.test(p)), ...lister(path.join(dossierScripts, "tests"), (p) => /\.(m?js|cjs)$/.test(p))]) {
     const r = spawnSync(process.execPath, ["--check", f], { encoding: "utf8" });
     r.status === 0 ? ok(`node --check ${rel(f)}`) : erreur(`node --check ${rel(f)} : ${(r.stderr || "").trim().split("\n")[0]}`);
 }
@@ -225,6 +240,42 @@ else {
     if (!v) avert("docs/ETAT-ACTUEL.md : ligne « Méthode : version X » absente");
     else if (/^</.test(v[1])) (GABARIT ? ok : avert)(`docs/ETAT-ACTUEL.md : version de la méthode ${GABARIT ? "à noter à l'installation (gabarit)" : "non remplie (contenu de VERSION du dépôt methode-travail)"}`);
     else ok(`méthode version ${v[1]} notée dans docs/ETAT-ACTUEL.md`);
+}
+
+// ---------------------------------------------------------------------------
+titre("8. Contrôles mécaniques (méthode 1.7.0)");
+const scripts17 = [
+    "lib-controles.mjs", "hook-qa-trace.mjs", "check-qa-trace.mjs", "hook-garde-git.mjs", "check-taille-diff.mjs",
+    "hook-rappel-tache.mjs", "hook-rappel-skills.mjs", "check-livraison-pr.mjs", "check-skills-agents.mjs",
+    "comparer-methode.mjs", "tests/controles.test.mjs",
+];
+const manquants17 = scripts17.filter((s) => !existsSync(path.join(dossierScripts, s)));
+manquants17.length ? erreur(`scripts absents : ${manquants17.join(", ")} (gabarit : modele/scripts/)`) : ok(`${scripts17.length} scripts de contrôle présents`);
+const hookGit = path.join(RACINE, ".githooks", "pre-commit");
+if (existsSync(hookGit)) {
+    const t = lire(hookGit);
+    for (const s of ["check-qa-trace.mjs", "check-taille-diff.mjs"]) (t.includes(s) ? ok : avert)(`.githooks/pre-commit ${t.includes(s) ? "appelle" : "n'appelle pas"} ${s}`);
+}
+for (const nom of ["architecture-existant.json", "couleurs-autorisees.json"]) {
+    const p = path.join(dossierScripts, nom);
+    if (!existsSync(p)) { avert(`scripts/${nom} absent : règles d'architecture correspondantes inactives`); continue; }
+    try { JSON.parse(lire(p)); ok(`scripts/${nom} lisible`); } catch (e) { erreur(`scripts/${nom} illisible : ${e.message}`); }
+}
+const qa = path.join(RACINE, ".claude", "agents", "qa-agent.md");
+if (existsSync(qa)) /VERDICT QA : OK/.test(lire(qa)) ? ok("qa-agent finit par « VERDICT QA : OK/KO » (lu par le verrou)") : erreur("qa-agent.md ne demande pas la ligne « VERDICT QA : OK / KO » : le verrou qa-agent refusera tous les commits");
+const registre = path.join(RACINE, ".claude", "skills", "REGISTRE.md");
+if (!existsSync(registre)) avert(".claude/skills/REGISTRE.md absent (registre des skills)");
+else {
+    const texte = lire(registre);
+    const absentes = skills.map((s) => path.basename(s)).filter((n) => !texte.includes(`\`${n}\``));
+    absentes.length ? avert(`skills absentes du registre : ${absentes.join(", ")}`) : ok("toutes les skills sont au registre");
+}
+if (!existsSync(path.join(RACINE, ".claude", "skills", "tache", "SKILL.md"))) erreur("skill `tache` absente (parcours unique d'une tâche)");
+const tests = path.join(dossierScripts, "tests", "controles.test.mjs");
+if (existsSync(tests)) {
+    const r = spawnSync(process.execPath, ["--test", tests], { cwd: RACINE, encoding: "utf8" });
+    const bilanTests = /# pass (\d+)[\s\S]*# fail (\d+)/.exec(r.stdout || "");
+    r.status === 0 ? ok(`tests des contrôles au vert (${bilanTests?.[1] ?? "?"} réussis)`) : erreur(`tests des contrôles en échec (${bilanTests?.[2] ?? "?"} échec(s)) : node --test scripts/tests/controles.test.mjs`);
 }
 
 // ---------------------------------------------------------------------------

@@ -16,9 +16,10 @@
 //
 // Sans dépendance : Node seul. Modèle « methode-travail » (patron repris de KHI Educ, 15 oct. 2026).
 import { execSync } from "node:child_process";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { lireConfig } from "./lib-controles.mjs";
 
 const ICI = fileURLToPath(import.meta.url);
 const args = process.argv.slice(2);
@@ -31,11 +32,51 @@ const IGNORES = new Set(["node_modules", ".git", ".next", "dist", "build", "cove
 const TEXTE = /\.(m?[jt]sx?|cjs|json|md|mdx|html?|css|scss|vue|svelte|astro|py|rb|php|sql|ya?ml|toml|sh|txt|po)$/i;
 const VERROUS = /(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|poetry\.lock|Cargo\.lock|composer\.lock)$/;
 
+// ---- Règles d'architecture (méthode 1.7.0, reprises de VieSolution-CSF, scripts/check-rules.mjs, 6 nov. 2026) ----
+// Elles analysent les « Dossiers de code » de la Fiche projet (CLAUDE.md). Leurs listes propres au projet sont dans
+// deux fichiers JSON à côté de ce script, qui ne font que RÉTRÉCIR (une infraction corrigée en sort, aucune n'y entre
+// sans accord) :
+//   scripts/architecture-existant.json  dossiers où la base peut être lue (« dossiers_domaine »), fichiers déjà en
+//                                       infraction tolérés (« acces_base », « fichiers_longs »), « lignes_max » ;
+//   scripts/couleurs-autorisees.json    palette du projet (« couleurs ») : vide = règle en attente de la palette.
+// Fichier absent : règle inactive (projet qui ne l'a pas encore adoptée). Fichier illisible : check-rules échoue.
+const CODE = lireConfig(RACINE).code;
+const illisibles = [];
+function lireListe(nom) {
+    const p = path.join(RACINE, "scripts", nom);
+    if (!existsSync(p)) return null;
+    try {
+        return JSON.parse(readFileSync(p, "utf8"));
+    } catch (e) {
+        illisibles.push(`scripts/${nom} illisible (${e.message})`);
+        return null;
+    }
+}
+const ARCHI = (() => {
+    const j = lireListe("architecture-existant.json");
+    return j && {
+        domaine: j.dossiers_domaine ?? [],
+        acces: new Set(j.acces_base ?? []),
+        longs: new Set(j.fichiers_longs ?? []),
+        lignesMax: Number(j.lignes_max) || 400,
+    };
+})();
+const PALETTE = (() => {
+    const j = lireListe("couleurs-autorisees.json");
+    return j?.couleurs?.length ? new Set(j.couleurs.map((c) => c.toLowerCase())) : null;
+})();
+// `.from('table')` / `.storage.from('seau')` littéraux et `.rpc(` (Supabase) — pas `.from(variable)`, ni Array.from(…).
+const ACCES_BASE = /(?<!\b(?:Array|Buffer|Uint8Array|Object|Set|Map))\.from\(\s*['"`]|\.rpc\(/;
+// Nombre de lignes comme `wc -l` : le retour à la ligne final ne crée pas de ligne.
+const nombreDeLignes = (lignes) => lignes.length - (lignes.at(-1) === "" ? 1 : 0);
+const CODE_SOURCE = /\.(m?[jt]sx?|vue|svelte|astro)$/i;
+const TESTS = /(\.(test|spec)\.[a-z]+$|\/__tests__\/)/;
+
 /**
  * Une règle :
  *   id        identifiant court, stable (cité dans `regle-ok: <id>`)
  *   incident  le fait réel qui l'a motivée — date, ce qui s'est passé. Sans incident, pas de règle.
- *   motif     RegExp testée sur chaque ligne, ou fonction (ligne, fichierRelatif) => booléen
+ *   motif     RegExp testée sur chaque ligne, ou fonction (ligne, fichierRelatif, indexLigne, lignes) => booléen
  *   dossiers  dossiers analysés, relatifs à la racine ("." = tout le dépôt)
  *   extensions (facultatif) RegExp sur le nom de fichier
  *   exclure   (facultatif) RegExp sur le chemin relatif
@@ -109,8 +150,76 @@ const RULES = [
     // (vocabulaire AMF d'un outil d'éducation financière — exemple d'une règle de vocabulaire par fichier), et une règle
     // propre à une personne.
 
+    {
+        id: "date-sans-fuseau",
+        incident: "VieSolution, 4 nov. 2026 (issues #394 et #400, après #236 en oct.) : des dates formatées sans fuseau sur le serveur (UTC) — un rendez-vous de 10 h à Montréal annoncé « 15 h » dans les courriels, et des heures décalées de 4 à 5 h dans le tableau de bord.",
+        // L'appel peut s'étaler sur plusieurs lignes : on lit l'appel entier (parenthèses équilibrées, 12 lignes au plus).
+        motif: (ligne, _rel, i, lignes) => {
+            const m = /(\.toLocale(Date|Time)?String|(?:new )?Intl\.DateTimeFormat)\(/.exec(ligne);
+            if (!m) return false;
+            const suite = (lignes ? lignes.slice(i, i + 12).join("\n") : ligne).slice(m.index + m[0].length - 1);
+            let profondeur = 0;
+            let fin = suite.length;
+            for (let k = 0; k < suite.length; k++) {
+                if (suite[k] === "(") profondeur++;
+                else if (suite[k] === ")" && --profondeur === 0) { fin = k + 1; break; }
+            }
+            if (/timeZone/.test(suite.slice(0, fin))) return false;
+            if (/^\)\.resolvedOptions\(\)/.test(suite.slice(fin - 1))) return false; // lecture du fuseau du navigateur
+            if (m[1].includes("Intl") || m[2]) return true; // DateTimeFormat, toLocaleDateString, toLocaleTimeString
+            return /(Date\(|(?<![A-Za-z])date\.)/.test(ligne); // toLocaleString : seulement sur une date (pas un nombre)
+        },
+        dossiers: CODE,
+        extensions: CODE_SOURCE,
+        exclure: TESTS,
+        message: "date formatée sans fuseau — ajouter timeZone (fuseau du projet, ex. 'America/Toronto') : le serveur tourne en UTC",
+    },
+    {
+        id: "couleur-hors-palette",
+        incident: "VieSolution, 6 nov. 2026 (suivi 12z) : 206 couleurs #rrggbb différentes écrites en dur, dont la moitié employées une seule fois — la propriétaire constate des « designs bizarres » ; un bouton s'affichait sans fond faute de couleurs communes.",
+        motif: (ligne) => {
+            if (!PALETTE) return false;
+            for (const m of ligne.matchAll(/(?<![\w/&])#([0-9a-fA-F]{6})(?:[0-9a-fA-F]{2})?\b/g)) {
+                if (!PALETTE.has(`#${m[1].toLowerCase()}`)) return true;
+            }
+            return false;
+        },
+        dossiers: CODE,
+        extensions: /\.(m?[jt]sx?|css|scss|vue|svelte|astro)$/i,
+        exclure: TESTS,
+        message: "couleur absente de la palette — reprendre une couleur du guide (UI-GUIDE du projet) ; une nouvelle couleur demande l'accord de la personne qui valide, puis s'ajoute au guide et à scripts/couleurs-autorisees.json",
+    },
+    {
+        id: "acces-base-hors-domaine",
+        incident: "VieSolution, 6 nov. 2026 (suivi 12z, docs/ARCHITECTURE.md règle 2) : 152 fichiers hors de src/lib/ lisaient ou écrivaient la base eux-mêmes (272 appels dans les seules routes d'API) — une table qui change se corrigeait à des dizaines d'endroits.",
+        motif: (ligne, rel) => Boolean(ARCHI?.domaine.length) && !ARCHI.domaine.some((d) => rel.startsWith(d))
+            && ACCES_BASE.test(ligne) && !ARCHI.acces.has(rel),
+        dossiers: CODE,
+        extensions: CODE_SOURCE,
+        exclure: TESTS,
+        message: "accès direct à la base hors des dossiers du domaine (« dossiers_domaine » de scripts/architecture-existant.json) — écrire (ou réutiliser) une fonction du domaine et l'appeler d'ici",
+    },
+    {
+        id: "fichier-trop-long",
+        incident: "VieSolution, 6 nov. 2026 (suivi 12z, docs/ARCHITECTURE.md règle 6) : 79 fichiers de plus de 400 lignes, jusqu'à 2 000 — difficiles à relire et à tester.",
+        motif: (_ligne, rel, i, lignes) => i === 0 && Boolean(ARCHI) && Boolean(lignes)
+            && nombreDeLignes(lignes) > ARCHI.lignesMax && !ARCHI.longs.has(rel),
+        dossiers: CODE,
+        extensions: CODE_SOURCE,
+        exclure: /(\/data\/|\.(test|spec)\.[a-z]+$|\/__tests__\/)/,
+        message: "nouveau fichier trop long (« lignes_max » de scripts/architecture-existant.json, 400 par défaut) — le découper (sous-composants, fonctions) ; les fichiers de données vont dans un dossier data/",
+    },
+
     // ---- Exemples à adapter au projet (décommenter, remplacer les valeurs inventées) ----
     //
+    // {
+    //     id: "composant-de-base-en-double",
+    //     incident: "VieSolution, 6 nov. 2026 (suivi 12z) : Button, Input et Slider existaient en double (src/components/ui et src/shared/ui) ; la règle empêche leur retour.",
+    //     motif: /@\/shared\/ui\/(Button|Input|Slider)['"]/,
+    //     dossiers: ["src"],
+    //     extensions: /\.tsx?$/i,
+    //     message: "composant de base en double — importer depuis @/components/ui/",
+    // },
     // {
     //     id: "domaine-en-dur",
     //     incident: "AAAA-MM-JJ : le domaine du site écrit en dur sur N pages pointait encore vers l'ancien domaine après la bascule.",
@@ -175,7 +284,7 @@ function analyser() {
                 const lignes = readFileSync(complet, "utf8").split("\n");
                 lignes.forEach((ligne, i) => {
                     if (ligne.includes(`regle-ok: ${regle.id}`)) return;
-                    const touche = typeof regle.motif === "function" ? regle.motif(ligne, rel) : regle.motif.test(ligne);
+                    const touche = typeof regle.motif === "function" ? regle.motif(ligne, rel, i, lignes) : regle.motif.test(ligne);
                     if (touche) violations.push({ regle, rel, ligne: i + 1, texte: ligne.trim().slice(0, 140) });
                 });
             }
@@ -190,6 +299,10 @@ if (args.includes("--liste")) {
     process.exit(0);
 }
 
+if (illisibles.length) {
+    console.error(`check-rules : ${illisibles.join(" ; ")} — corriger le JSON avant de continuer.`);
+    process.exit(1);
+}
 const violations = analyser();
 if (!violations.length) {
     console.log(`check-rules : ${RULES.length} règle(s), aucune violation.`);

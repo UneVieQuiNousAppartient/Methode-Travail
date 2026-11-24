@@ -26,6 +26,17 @@
             "statusMessage": "Fichiers protégés (.env*, verrous, artefacts)…"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hook-garde-git.mjs\"",
+            "timeout": 10,
+            "statusMessage": "Garde Git (contrôles jamais sautés)…"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -37,6 +48,49 @@
             "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hook-lint-fix.mjs\"",
             "timeout": 30,
             "statusMessage": "Correcteur de lint sur le fichier écrit…"
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hook-rappel-skills.mjs\"",
+            "timeout": 10,
+            "statusMessage": "Skills et tâches semblables…"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hook-rappel-tache.mjs\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "qa-agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hook-qa-trace.mjs\"",
+            "timeout": 30,
+            "statusMessage": "Instantané qa-agent…"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "qa-agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hook-qa-trace.mjs\"",
+            "timeout": 30,
+            "statusMessage": "Trace qa-agent…"
           }
         ]
       }
