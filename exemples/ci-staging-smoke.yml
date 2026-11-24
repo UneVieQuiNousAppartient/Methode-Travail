@@ -97,7 +97,34 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      # Navigateur gardé en cache (clé = version de Playwright) : seul le téléchargement de Chromium est évité ; les
+      # dépendances système passent encore par le miroir Ubuntu. Repris de VieSolution (#448, 11 nov. 2026) : sans
+      # cache ni limite, un blocage du miroir a tenu un job 1 h 40 en consommant le quota d'Actions.
+      - name: Version de Playwright
+        id: pw
+        run: |
+          v="$(npx playwright --version | awk '{print $2}')"
+          test -n "$v"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - name: Navigateur en cache
+        id: pw-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.pw.outputs.version }}-chromium
+      - name: Installer le navigateur
+        id: pw-install
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Dépendances système seulement
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - name: Garder le navigateur en cache
+        if: steps.pw-install.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.pw.outputs.version }}-chromium
 
       - name: Attendre que le site réponde (4 min au plus)
         env:

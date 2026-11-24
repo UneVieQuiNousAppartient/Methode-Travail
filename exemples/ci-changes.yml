@@ -2,6 +2,10 @@
 # À fusionner dans le workflow CI du projet : le job « changes » saute build/tests
 # quand une PR ne touche que docs/, .claude/ ou des *.md à la racine.
 # Chaque job coûteux ajoute : needs: changes + if: needs.changes.outputs.code == 'true'
+#
+# Méthode 1.7.0 (repris de VieSolution, reusable-quality.yml, 14 nov. 2026) : le job « methode » tourne TOUJOURS
+# (moins d'une minute, sans npm ci) — tests des contrôles mécaniques, puis, sur une PR, check-livraison-pr.mjs qui
+# refuse du code livré sans entrée au suivi ni docs/ETAT-ACTUEL.md à jour.
 
 jobs:
   changes:
@@ -33,6 +37,26 @@ jobs:
             echo "code=true" >> "$GITHUB_OUTPUT"
           else
             echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  methode:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # check-livraison-pr compare la branche à sa base
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Contrôles de la méthode
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          node --test scripts/tests/controles.test.mjs  # chemin explicite : Node 20 ne lit pas les globs
+          if [ "$EVENT" = "pull_request" ]; then
+            node scripts/check-livraison-pr.mjs --base "$BASE"
           fi
 
   build:

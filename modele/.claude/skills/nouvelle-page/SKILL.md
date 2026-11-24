@@ -27,15 +27,19 @@ incomplet malgré la règle « pied de page = plan complet du site ».
 oubliée** ✘. Des semaines de travail invisibles.
 
 Lire d'abord `docs/ETAT-ACTUEL.md`. **Jamais `SUIVI-TACHES.md` en entier**
-(`grep` ciblé). Agents éventuels : `ux-agent` (`model: "opus"`), traductions
+(`grep` ciblé). Agents éventuels : `ux-agent` (son modèle par défaut ; `model: "opus"` si la page touche l'authentification,
+l'argent ou des données de clients — `budget-jetons.md`), traductions
 `model: "haiku"`.
 
 ## Checklist de raccordement — aucune ligne facultative
 
 ### 0. La maquette d'abord (écran important)
 
-Pour un écran important, une maquette (2 ou 3 variantes, contenu réel),
-commentée et **validée par la personne qui valide avant toute ligne de code**.
+Pour un écran important, une maquette **en images** (page d'essai `maquette-*`
+codée avec les vrais composants, 2 ou 3 variantes, contenu réel, captures
+téléphone et ordinateur ; page supprimée avant la PR — skill `tache`,
+`references/maquettes.md`), **validée par la personne qui valide avant toute
+ligne de code**.
 Composants : ceux de la bibliothèque du projet ; une nouvelle dépendance = son
 accord.
 

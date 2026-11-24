@@ -6,6 +6,10 @@
 # Idempotent : relançable à la main sans effet de bord.
 set -euo pipefail
 
+# 0. Hooks Git actifs dans toute session Claude (méthode 1.7.0, repris de VieSolution-CSF, 14 nov. 2026) : sans ce
+#    réglage, les contrôles bloquants de .githooks/pre-commit ne tournaient pas du tout dans les sessions cloud.
+git -C "${CLAUDE_PROJECT_DIR:-$(dirname "$0")/..}" config core.hooksPath .githooks 2>/dev/null || true
+
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
@@ -81,4 +85,9 @@ echo "Fichiers modifiés : ${changes:-aucun}"
 if [ -f docs/ETAT-ACTUEL.md ]; then
   echo
   cat docs/ETAT-ACTUEL.md
+fi
+
+# 4. Skills déclarées par les agents mais absentes (une skill manquante ne produit aucune erreur).
+if [ -f scripts/check-skills-agents.mjs ]; then
+  node scripts/check-skills-agents.mjs 2>/dev/null || true
 fi

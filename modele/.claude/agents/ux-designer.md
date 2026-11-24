@@ -5,6 +5,10 @@ tools: Read, Grep, Glob, Write
 disallowedTools: Edit, Bash, Agent, Task
 model: opus
 maxTurns: 20
+# Méthode 1.7.0 (repris de VieSolution, 7 nov. 2026) : une maquette avait été faite sans aucune skill de design.
+# `web-design-guidelines` n'est pas préchargée ici (elle télécharge ses règles et cet agent n'a ni WebFetch ni Bash) :
+# la revue d'accessibilité se fait ensuite par `ux-agent`.
+skills: [frontend-design]
 ---
 
 # UX Designer — UI-GUIDE + contenu des maquettes

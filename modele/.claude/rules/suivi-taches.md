@@ -1,5 +1,8 @@
 # Suivi des tâches — le travail n'est pas fini tant qu'il n'est pas consigné
 
+Demande de Camille (12 août 2026) : un suivi non commité, ou dont l'en-tête ment sur sa fraîcheur, est pire qu'un
+suivi absent. Raisons et exemples : `docs/methode/suivi-taches-details.md` (lu à la demande).
+
 ## Quatre fichiers, quatre rôles
 
 - **`docs/ETAT-ACTUEL.md`** (≤ 40 lignes) : chantiers en cours, décisions qui attendent, rappels, prochaine
@@ -39,12 +42,17 @@ E01, E02… (un numéro n'est jamais réutilisé ; une erreur disparue pour de b
   `scripts/check-rules.mjs` (`regles-metier.md`), dont l'`id` va dans la colonne « Règle » : la table
   explique, la règle empêche.
 
-*Exemple (Ben's)* : la table « Erreurs connues — NE JAMAIS RÉPÉTER » (E01-E15) de son `MEMORY.md` a évité de
-rediagnostiquer plusieurs fois les mêmes pièges d'outils et de CI.
-
 ## Honnêteté
 
 - Jamais ✅ sur ce qui n'a pas été vérifié ; ce qui demande un test humain porte « **À tester par <nom>** ».
 - Une entrée reconstruite après coup le dit en tête.
 - Les décisions négatives (reporté, retiré, non fait) se consignent aussi, avec la raison.
 - Aucun secret dans ces fichiers : ils sont versionnés.
+
+## Garde-fous mécaniques
+
+- `scripts/check-suivi.js` (hook `pre-commit`, mode `--hook`) **avertit** sans bloquer si du code (« Dossiers de
+  code » de la Fiche projet) part sans entrée au suivi, ou si l'en-tête n'a pas la date du jour.
+- `scripts/check-livraison-pr.mjs` (CI, sur chaque PR) **refuse** une PR qui touche le code sans entrée au suivi
+  (en-tête « Dernière mise à jour » changé par rapport à la base) ni `docs/ETAT-ACTUEL.md` mis à jour. Bloqué à la
+  PR, pas au commit : les commits intermédiaires sans suivi sont normaux, la PR est le moment de la livraison.

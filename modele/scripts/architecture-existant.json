@@ -1,0 +1,7 @@
+{
+  "_lisez-moi": "Règles d'architecture de scripts/check-rules.mjs (méthode 1.7.0). dossiers_domaine : seuls dossiers où le code lit ou écrit la base (ex. \"src/lib/\") ; vide = règle acces-base-hors-domaine inactive. acces_base et fichiers_longs : fichiers DÉJÀ en infraction à l'installation, tolérés ; ces listes ne font que rétrécir (un fichier corrigé en sort, aucun n'y entre sans accord). lignes_max : seuil de fichier-trop-long. Remplir à l'installation avec la procédure du README (section « Règles d'architecture »).",
+  "dossiers_domaine": [],
+  "lignes_max": 400,
+  "acces_base": [],
+  "fichiers_longs": []
+}

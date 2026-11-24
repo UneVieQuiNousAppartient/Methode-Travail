@@ -1,0 +1,4 @@
+{
+  "_lisez-moi": "Palette du projet pour la règle couleur-hors-palette de scripts/check-rules.mjs (méthode 1.7.0) : couleurs #rrggbb en minuscules, celles du guide d'interface (UI-GUIDE). Vide = règle en attente de la palette. Une nouvelle couleur demande l'accord de la personne qui valide, puis s'ajoute au guide et ici.",
+  "couleurs": []
+}
