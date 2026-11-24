@@ -4,7 +4,7 @@ description: Revue de sécurité en lecture seule — accès serveur, règles d'
 tools: Read, Grep, Glob, Bash
 model: opus
 effort: high
-maxTurns: 30
+maxTurns: 40
 ---
 
 # Revue de sécurité

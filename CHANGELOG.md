@@ -5,6 +5,155 @@ Version courante : fichier `VERSION`. Chaque projet note la version reçue dans 
 Numérotation : majeure = changement qui demande de refaire l'installation ; mineure = ajout ;
 correctif = précision de texte.
 
+## 1.7.0 — 2026-11-24 — Contrôles mécaniques, parcours `tache`, mise à jour en une commande (apports de VieSolution, nov. 2026)
+
+Report dans `modele/` de tout ce qui est **commun** dans les améliorations de méthode de VieSolution-CSF depuis le
+31 oct. 2026 (écart `df3ff89..main` sur `.claude`, `scripts`, `.githooks`, `docs/methode`, `CLAUDE.md`, `.github` ;
+classement de `docs/methode/COMMUN.md`). Principe repris de la 1.1.0 : **aucun chemin propre à un projet dans un
+script** — les contrôles lisent la Fiche projet de `CLAUDE.md` (« Dossiers de code », « Routes publiques », et la
+nouvelle clé facultative « Chemins sensibles ») par `scripts/lib-controles.mjs`. Chaque script arrive avec son test.
+
+### Ajouté (commun, copié tel quel dans un projet)
+
+| Élément | Origine dans VieSolution-CSF | Ce qu'il fait |
+|---|---|---|
+| Skill `tache` + `references/maquettes.md` | `.claude/skills/tache/`, 6-15 nov. 2026 | Le même parcours en 8 étapes pour chaque demande (origine, comprendre, normes, skills, plan et coût, faire, montrer, vérifier, livrer), avec la ligne de suivi des étapes et la maquette en images par défaut. |
+| `.claude/skills/REGISTRE.md` | même chemin, 6 nov. 2026 | Quelle skill sert à quoi, d'où elle vient, quel agent la précharge, quoi faire si elle manque. |
+| Verrou `qa-agent` : `scripts/hook-qa-trace.mjs`, `scripts/check-qa-trace.mjs` | mêmes chemins, 14 nov. 2026 (suivi 14l) | À la fin d'un `qa-agent` « VERDICT QA : OK », note l'empreinte des fichiers ; le hook Git refuse un commit de 2 fichiers ou plus (ou 1 sensible) qui n'a pas été vérifié tel quel. |
+| `scripts/hook-garde-git.mjs` | même chemin, 14 nov. 2026 | Refuse à Claude `--no-verify`, `git commit -n`, un `core.hooksPath` détourné et toute écriture de la trace `qa-agent`. |
+| `scripts/check-taille-diff.mjs` | même chemin, 14 nov. 2026 | « Moins de code » : avertit quand un fichier déjà long grossit, ou quand beaucoup de code est ajouté sans rien retirer ; donne les lignes réelles d'une livraison. |
+| `scripts/hook-rappel-tache.mjs` | même chemin, 6 nov. 2026 | Rappelle à chaque message le parcours `tache` (≈ 130 jetons). |
+| `scripts/hook-rappel-skills.mjs` | même chemin, 14 nov. 2026 | À la première modification d'un dossier de code : rappel si aucune skill n'est chargée, et au plus 3 tâches semblables déjà faites (au suivi). |
+| `scripts/check-livraison-pr.mjs` | même chemin, 14 nov. 2026 | En CI, refuse une PR qui touche le code sans entrée au suivi ni `docs/ETAT-ACTUEL.md` à jour ; avertit pour une page `maquette-*` restante, un nouvel écran ou > 800 lignes sans `IMPLEMENTATION-PLAN.md`. |
+| `scripts/check-skills-agents.mjs` | même chemin, 6 nov. 2026 | Signale une skill demandée par un agent mais introuvable (elle manque sinon sans aucun message). |
+| `scripts/lib-controles.mjs` + `scripts/tests/controles.test.mjs` | mêmes chemins, 14 nov. 2026 | Cœur commun des contrôles, **généralisé** (chemins lus dans la Fiche projet) ; 14 tests (`node --test`), un cas bloqué et un cas qui passe par contrôle. |
+| 5 skills copiées avec `SOURCE.md` : `architecture`, `tech-debt` (Anthropic), `frontend-design` (Anthropic), `web-design-guidelines`, `vercel-react-best-practices` (Vercel) | `.claude/skills/`, 5-11 nov. 2026 | Décisions d'architecture, dette des fichiers touchés, direction visuelle, revue d'interface et d'accessibilité, bonnes pratiques React. La note propre à VieSolution de chaque `SOURCE.md` est devenue une note générale. `vercel-react-best-practices` : projet React seulement. |
+| `docs/methode/agent-workflow-details.md`, `budget-jetons-details.md`, `suivi-taches-details.md` | mêmes chemins, 14-15 nov. 2026 | Le détail et les raisons des règles, lus seulement au besoin ; **réécrits** sans les anecdotes de VieSolution (seuls quelques constats datés expliquent une règle). |
+
+### Ajouté (nouveau, pour ne plus recommencer ces étapes)
+
+Demande de Camille (24 nov. 2026) : « je ne veux plus recommencer ces étapes, il faut que ce soit commun ».
+- **`scripts/comparer-methode.mjs`** (+ test) : dans un projet, `node scripts/comparer-methode.mjs <methode-travail>`
+  dit, pour chaque fichier du modèle, s'il est identique, absent, commun mais différent, ou à adapter, et liste les
+  fichiers propres au projet ; donne la version du modèle et celle du projet.
+- **Skill `methode-a-jour`** : « mets la méthode à jour » dans un projet — lit sa version, applique dans l'ordre les
+  sections « Passer de … à … » de ce CHANGELOG, ne remplace rien de propre au projet, vérifie, PR en brouillon.
+- **Skill `remonter-methode`** : la démarche de cette version-ci, écrite une fois pour toutes — « remonte ça dans la
+  méthode » depuis un projet.
+
+### Commun à adapter (forme commune, contenu du projet)
+
+- **`scripts/check-rules.mjs`** (VieSolution, 4-6 nov. 2026) : le moteur passe aux règles l'index de la ligne et le
+  fichier entier ; 4 règles reprises — `date-sans-fuseau` (toujours active), `fichier-trop-long`,
+  `acces-base-hors-domaine`, `couleur-hors-palette` — qui analysent les « Dossiers de code ». Leurs listes sont deux
+  gabarits **vides** : `scripts/architecture-existant.json` (dossiers où la base peut être lue, infractions déjà là,
+  `lignes_max`) et `scripts/couleurs-autorisees.json` (palette). Fichier absent ou liste vide : règle inactive ;
+  fichier illisible : `check-rules` échoue. `composant-de-base-en-double` reste un exemple en commentaire.
+- **Règles** `agent-workflow.md` (déclencheur vérifié par le hook, seuil des documents, réutiliser avant de
+  construire, moins de code, skills et plugins), `budget-jetons.md` (lignes estimées, grille par agent, Sonnet
+  possible pour l'exécution d'interface, grep de l'issue avant un plan), `suivi-taches.md` (contrôle de la PR) :
+  allégées, le détail dans `docs/methode/`.
+- **`CLAUDE.md`** : skill `tache` et registre dans l'ordre de lecture ; clé facultative **« Chemins sensibles »** ;
+  paragraphe des hooks Git.
+- **`.claude/settings.json`** : hooks `PreToolUse` Bash (garde Git), `PostToolUse` (rappel des skills),
+  `UserPromptSubmit` (rappel du parcours), `SubagentStart` / `SubagentStop` sur `qa-agent` (verrou).
+- **`.githooks/pre-commit`** : `check-taille-diff` et maquettes (avertissent), verrou `qa-agent` (bloque) ; plus de
+  « contournement ponctuel ».
+- **`scripts/session-start.sh`** : active le hook Git à chaque session Claude (il ne tournait pas en cloud) et lance
+  `check-skills-agents`.
+- **Agents** : `qa-agent` (outil `Skill`, 45 tours, partie « Moins de code », dernière ligne `VERDICT QA : OK/KO`),
+  `ux-agent` (skills préchargées, rappels de maquette, « Revue obligatoire » en quatre preuves ; reste en Opus,
+  Sonnet au choix du projet), `ux-designer` (précharge `frontend-design`), `securite` (40 tours) ; skill
+  `nouvelle-page` (maquette en images).
+- **`scripts/verifier-methode.mjs`** : clé « Chemins sensibles » ; partie 8 « Contrôles mécaniques » (scripts
+  présents, hooks branchés, listes lisibles, verdict de `qa-agent`, registre à jour, skill `tache`, tests au vert) ;
+  `node --check` des tests.
+- **`exemples/`** : `ci-changes.yml` gagne un job `methode` qui tourne toujours (tests des contrôles, contrôle de
+  livraison de la PR) ; `ci-staging-smoke.yml` garde le navigateur de Playwright en cache.
+
+### Laissé de côté (propre à VieSolution)
+
+AMF, estimateurs, ABF (`scripts/abf-parite/`), Loi 25 propre au produit, règles `etape-dossier-directe` et
+« Camille est un homme », agents métier (`conformite-agent`, `diagnostic-agent`, `email-automation-agent`,
+`automation-dev-agent`, `learning-paths-agent`, `suivi-agent`, `vente-agent`, `crm-sync-agent`,
+`conversation-agent`, `marketing-agent`, `planification-agent`), règles `ai-integration.md` et
+`anti-egress-performance.md`, contenu de `couleurs-autorisees.json` et `architecture-existant.json`, plugins
+d'usage ponctuel du registre (Deep Refactor, Dashboard Design), lien du projet Claude Design, cache Playwright de
+`ci-production.yml` (même changement que l'exemple de préproduction). `react-purity-rules.md` (commun à adapter pour
+React) n'a pas changé depuis le 31 oct. : non repris dans ce lot.
+
+### Vérifié
+
+- `node --test modele/scripts/tests/controles.test.mjs` : 14 tests au vert ; deux mutations (fichier sensible non
+  compté, tolérance d'architecture ignorée) vues en échec, puis remises.
+- `node modele/scripts/verifier-methode.mjs --gabarit` (depuis `modele/`) : 0 ✖ ; 3 ⚠ attendus (dossiers de code
+  absents du gabarit ; `frontend-design/SOURCE.md` sans dépôt ni commit, copiée d'un plugin installé).
+- YAML des deux exemples validé.
+
+### Pas encore vérifié
+
+- Le verrou `qa-agent` n'a pas tourné dans une vraie session sur un **autre** projet que VieSolution (il dépend des
+  champs `agent_type` et `agent_transcript_path` des hooks de Claude Code, vérifiés le 14 nov. 2026, version 2.1.325).
+- Les 4 règles d'architecture n'ont pas été lancées sur Ben's, KHI ni Vie Solution Web : leur premier passage
+  remplira les listes de tolérance.
+
+### Passer de 1.2.0 (ou 1.3.0 à 1.6.0) à 1.7.0
+
+Les versions 1.3.0 à 1.6.0 n'ont touché que `kits/`, sauf la 1.4.0 qui a ajouté 4 règles à `check-rules.mjs`
+(`consentement-precoche`, `stockage-direct`, `police-google`, `temoignages-demo`) : un projet en 1.2.0 les reprend
+au passage (étape 4). Avec la skill `methode-a-jour`, ou à la main :
+1. **Ajouter `methode-travail` à la session**, le cloner à côté, copier `modele/scripts/comparer-methode.mjs` dans
+   `scripts/` et lancer `node scripts/comparer-methode.mjs <methode-travail>` : c'est la liste de travail.
+2. **Copier tels quels** (s'ils sont absents) : `scripts/lib-controles.mjs`, `hook-qa-trace.mjs`,
+   `check-qa-trace.mjs`, `hook-garde-git.mjs`, `check-taille-diff.mjs`, `hook-rappel-tache.mjs`,
+   `hook-rappel-skills.mjs`, `check-livraison-pr.mjs`, `check-skills-agents.mjs`, `comparer-methode.mjs`,
+   `scripts/tests/controles.test.mjs` ; `.claude/skills/tache/`, `methode-a-jour/`, `remonter-methode/` ; les 5 skills
+   copiées avec leur `SOURCE.md` (retirer `vercel-react-best-practices` hors React) ; `docs/methode/*-details.md`
+   (fusionner si le projet en a déjà).
+3. **Fusionner** (garder le contenu du projet, ajouter ce qui manque) :
+   - `.claude/settings.json` : les 5 hooks (Bash → `hook-garde-git`, PostToolUse → `hook-rappel-skills`,
+     `UserPromptSubmit`, `SubagentStart` et `SubagentStop` avec `"matcher": "qa-agent"`) ;
+   - `.githooks/pre-commit` : blocs `check-taille-diff`, `check-qa-trace`, `check-livraison-pr --maquettes` ;
+   - `scripts/session-start.sh` : étape 0 (`git config core.hooksPath .githooks`) et étape 4 (`check-skills-agents`) ;
+     un projet qui a d'autres hooks Git (husky…) les appelle depuis `.githooks/pre-commit` ;
+   - `CLAUDE.md` : ligne `tache` / registre dans l'ordre de lecture, clé **« Chemins sensibles »** remplie
+     (authentification, accès, base, paiement ; « — » sinon), paragraphe des hooks Git ;
+   - `.claude/agents/qa-agent.md` : la dernière ligne `VERDICT QA : OK/KO` est **obligatoire** (sans elle, le verrou
+     refuse tous les commits), plus l'outil `Skill`, `maxTurns: 45` et la partie « Moins de code » ;
+     `ux-agent.md`, `ux-designer.md`, `securite.md` : voir « Commun à adapter » ;
+   - `.claude/rules/agent-workflow.md`, `budget-jetons.md`, `suivi-taches.md` : nouvelles sections, en gardant les
+     listes propres au projet (agents, constats) ; `.claude/skills/REGISTRE.md` : partir du gabarit, ajouter les
+     skills et plugins du projet.
+4. **`scripts/check-rules.mjs`** : reprendre du modèle le bloc « Règles d'architecture », l'appel
+   `regle.motif(ligne, rel, i, lignes)`, l'arrêt sur liste illisible et les règles absentes du projet ; garder ses
+   règles propres. Puis **remplir les listes** : copier les deux gabarits JSON, mettre `dossiers_domaine` (ex.
+   `["src/lib/"]`) et la palette du guide d'interface ; lancer `node scripts/check-rules.mjs` ; les fichiers déjà en
+   infraction vont dans `acces_base` / `fichiers_longs` (avec l'accord de la personne qui valide), les dates sans
+   fuseau se corrigent ou portent `regle-ok: date-sans-fuseau` avec la raison. Une liste ne fait ensuite que rétrécir.
+5. **CI** : ajouter le job `methode` d'`exemples/ci-changes.yml` (ou ses deux commandes dans le job qualité, avec
+   `fetch-depth` suffisant pour comparer à la base).
+6. **Vérifier** : `node scripts/verifier-methode.mjs` sans ✖, `node --test scripts/tests/controles.test.mjs`, la
+   commande Vérification ; « Méthode : version 1.7.0 » dans `docs/ETAT-ACTUEL.md` ; `qa-agent` (le premier commit qui
+   ajoute les hooks est lui-même soumis au verrou à la session suivante seulement) ; PR en brouillon.
+7. **Session suivante** : les nouveaux hooks, agents et skills ne se chargent qu'alors.
+
+Coût constaté de ce report : voir la PR de cette version. Coût attendu pour un projet : ≈ 100 à 200 k.
+
+### Prochaines étapes (vers « un Lovable pour mes clients », non faites)
+
+Vision de Camille : démarrer chaque nouveau projet client (CRM ou site web) depuis ce dépôt, sans recommencer.
+1. **Démarrage automatique d'un projet client** — skill `nouveau-projet-client` + script `demarrer-projet.mjs` :
+   crée le dépôt à partir de `modele/`, remplit la Fiche projet par questions simples (pile, domaine, personne qui
+   valide), active les hooks, ouvre la première PR. ≈ 300-400 k.
+2. **Gabarit de site** (`kits/site/`) : Next.js + TypeScript strict, pages publiques de base, SEO, sitemap, CSP,
+   formulaires et courriels (briques du lot 1 de `kits/crm/ts/`), déploiement Vercel, tests de fumée. ≈ 600-800 k.
+3. **Kit CRM TypeScript, écrans** : routes et écrans de l'admin (liste, fiche, poste d'appel) sur les briques des lots
+   1, 2 et 1.6.0, avec la simulation de l'admin réel. ≈ 800 k-1,2 M (palier gros, accord).
+4. **Passage des projets en 1.7.0** avec `methode-a-jour` : Ben's, KHI Educ, Vie Solution Web, VieSolution (qui
+   reprend `lib-controles` généralisé et `comparer-methode`). ≈ 100-200 k chacun.
+5. **Mise à jour sans session dédiée** : une tâche planifiée qui compare chaque projet au modèle chaque semaine et
+   propose une PR quand la version a bougé. ≈ 150 k.
+
 ## 1.6.0 — 2026-10-31 — Kit CRM TS, poste d'appel
 
 Brique « Poste d'appel » en TypeScript strict, sans écrans ni routes, portée d'un projet client en production et

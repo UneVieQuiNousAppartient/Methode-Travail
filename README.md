@@ -16,21 +16,25 @@ règles, agents et skills doivent donc vivre dans le `.claude/` de chaque dépô
 |---|---|---|
 | **Fiche projet** | `CLAUDE.md`, section « Fiche projet » | Source unique des commandes et chemins : pile, dossiers de code, **commande de vérification = ce que rejoue la CI**, déploiement, contrôle après déploiement, routes, langues, personne qui valide. Lue par les agents, les skills et les scripts |
 | Budget de jetons | `.claude/rules/budget-jetons.md` | Paliers (petit ≤ 200 k, moyen ≤ 1 M, gros = accord), coût estimé puis réel, grille Opus / Sonnet / Haiku, arrêt à la limite d'usage |
-| Workflow | `.claude/rules/agent-workflow.md` | Plan avant action, déclencheur objectif, `qa-agent` avant tout commit de 2+ fichiers, bugs → issues, convention `SOURCE.md`, tableau des garde-fous |
+| **Parcours d'une tâche** | skill `tache` + `.claude/skills/REGISTRE.md` | Le même parcours en 8 étapes pour chaque demande (origine, normes, skills, plan et coût, faire, montrer, vérifier, livrer) ; le registre dit quelle skill sert à quoi ; rappelé à chaque message (`hook-rappel-tache.mjs`) |
+| Workflow | `.claude/rules/agent-workflow.md` + `docs/methode/*-details.md` | Plan avant action, déclencheur objectif, `qa-agent` avant tout commit de 2+ fichiers, réutiliser avant de construire, **moins de code** (lignes estimées, `simplify` puis `tech-debt`), bugs → issues ; le détail se lit à la demande |
+| **Verrou `qa-agent`** | `scripts/hook-qa-trace.mjs` + `check-qa-trace.mjs` + `hook-garde-git.mjs` | Un commit de 2 fichiers ou plus (ou 1 « chemin sensible ») est refusé tant qu'un vrai `qa-agent` n'a pas dit « VERDICT QA : OK » sur ces fichiers exacts ; Claude ne peut pas sauter les hooks |
+| **Contrôles de livraison** | `scripts/check-livraison-pr.mjs`, `check-taille-diff.mjs`, `hook-rappel-skills.mjs`, `check-skills-agents.mjs` | PR refusée en CI si le code part sans suivi ni `ETAT-ACTUEL` ; avertissements « moins de code », maquette restante, nouvel écran sans plan ; tâches semblables déjà faites ; skill d'agent manquante. Chemins lus dans la Fiche projet (`lib-controles.mjs`), tests dans `scripts/tests/` |
+| **Mise à jour d'un projet** | skills `methode-a-jour` et `remonter-methode`, `scripts/comparer-methode.mjs` | « Mets la méthode à jour » / « remonte ça dans la méthode » : comparaison fichier par fichier avec `modele/`, puis la procédure du CHANGELOG |
 | Suivi | `.claude/rules/suivi-taches.md` | `ETAT-ACTUEL.md` lu en premier, suivi jamais lu en entier, entrée obligatoire à chaque livraison |
 | Règles métier | `.claude/rules/regles-metier.md` + `scripts/check-rules.mjs` | Un incident de contenu ou de sécurité récurrent devient une règle mécanique (id, incident, motif, dossiers, message), pas un rappel dans un agent |
 | Réglages | `.claude/settings.json` | Agents en Opus par défaut ; hooks SessionStart, PreToolUse, PostToolUse ; liste de plugins à couper selon le projet |
 | Hooks Claude Code | `scripts/hook-protect-files.mjs`, `scripts/hook-lint-fix.mjs` | Refus d'écrire `.env*`, verrous, artefacts ; `eslint --fix` sur chaque fichier écrit (si ESLint est installé) |
 | Registre des erreurs connues | `docs/ERREURS-CONNUES.md` + règle `suivi-taches.md` | Message exact, cause prouvée, solution ; lu après `ETAT-ACTUEL.md` : une erreur déjà diagnostiquée ne se rediagnostique pas |
 | Fichiers secrets suivis | `scripts/check-secrets-suivis.mjs` | Refuse un `.env`, un `.npmrc` avec jeton, une clé privée suivis par Git, ou un `.env.example` avec une vraie valeur |
-| Hook Git | `.githooks/pre-commit` | `check-suivi.js --hook` (avertit, ne bloque pas) + `check-secrets-suivis.mjs` et `check-rules.mjs` (bloquent) ; actif après `git config core.hooksPath .githooks` |
-| Démarrage | `scripts/session-start.sh` | En cloud : dépendances, navigateur de test, état du projet affiché |
-| Contrôle de la méthode | `scripts/verifier-methode.mjs` | Réglages, frontmatter, scripts, Fiche projet remplie, dossiers de code, `SOURCE.md`, hook Git actif, registre des erreurs présent |
+| Hook Git | `.githooks/pre-commit` | `check-suivi.js --hook` et `check-taille-diff.mjs` (avertissent) + `check-secrets-suivis.mjs`, `check-rules.mjs` et le verrou `qa-agent` (bloquent) ; activé à chaque session Claude par `session-start.sh` |
+| Démarrage | `scripts/session-start.sh` | Hook Git activé ; en cloud : dépendances, navigateur de test, état du projet affiché, skills d'agents manquantes |
+| Contrôle de la méthode | `scripts/verifier-methode.mjs` | Réglages et hooks, frontmatter, scripts, Fiche projet remplie, dossiers de code, `SOURCE.md`, hook Git actif, registre des erreurs, contrôles mécaniques 1.7.0 et leurs tests |
 | Veille des skills copiées | `scripts/skills-check.mjs` | Signale les skills dont la source a changé en amont ; ne met rien à jour |
 | Chaîne de documents | skill `nouveau-projet` + 5 agents de conception | BRIEF → PRD + APP-FLOW → SCHEMA → TRD → UI-GUIDE (+ maquettes Claude Design) → IMPLEMENTATION-PLAN → revue `qa-agent` |
 | Agents de code | `orchestrateur`, `data-agent`, `ux-agent`, `ai-agent`, `qa-agent`, `prompt-agent` | Socle commun ; une section « Propre au projet » à remplir |
 | Agents de revue | `securite`, `revue-integration` | Lecture seule, Opus, verdict binaire ; ne croient jamais le résumé de l'auteur |
-| 14 skills | `.claude/skills/` | `nouveau-projet`, `nouveau-crm`, `livrer`, `point-projet`, `qa-feature`, `tester-dabord`, `nouvelle-page`, `audit-seo`, `deploiement`, `incident`, `client-onboarding`, `diagnostic-ai`, `email-automation`, `recommendation-engine` |
+| 22 skills | `.claude/skills/` (registre : `REGISTRE.md`) | Du modèle : `tache`, `nouveau-projet`, `nouveau-crm`, `livrer`, `point-projet`, `qa-feature`, `tester-dabord`, `nouvelle-page`, `audit-seo`, `deploiement`, `incident`, `client-onboarding`, `diagnostic-ai`, `email-automation`, `recommendation-engine`, `methode-a-jour`, `remonter-methode` ; copiées avec `SOURCE.md` : `architecture`, `tech-debt`, `frontend-design`, `web-design-guidelines`, `vercel-react-best-practices` (React seulement) |
 | Tester d'abord | skill `tester-dabord` | Règle de calcul critique (argent, quantités, accès, dates) en fonction pure + test écrit avant ou avec le code ; test de parité client ↔ serveur |
 | Gabarits | `CLAUDE.md`, `docs/ETAT-ACTUEL.md`, `docs/ERREURS-CONNUES.md`, `docs/projets/_modele/BRIEF.md`, `.github/PULL_REQUEST_TEMPLATE.md` | Points de départ à remplir |
 | **Kit CRM** | `kits/crm/` (hors `modele/`, ne se copie pas en bloc) + skill `nouveau-crm` | Démarrer un CRM, un admin ou un espace client sans repartir de zéro : catalogue de toutes les briques de KHI Educ, code nettoyé (accès et rôles, double authentification et « se souvenir de cet appareil 30 jours », admin, tests et simulation de l'admin réel), règles d'écran, leçons ; variante TypeScript strict `kits/crm/ts/` (lot 1 : site public, formulaires, courriels — meilleures briques de VieSolution-CSF, KHI Educ et Vie Solution Web) |
@@ -101,6 +105,13 @@ La session doit alors, dans cet ordre :
      autre correcteur si la pile n'est pas JavaScript ;
    - `scripts/check-rules.mjs` : les incidents déjà vécus par le projet deviennent des règles (voir les
      exemples commentés) ; `scripts/check-secrets-suivis.mjs` : ajouté à la commande Vérification ;
+   - **règles d'architecture** : `scripts/architecture-existant.json` (`dossiers_domaine`, ex. `["src/lib/"]`) et
+     `scripts/couleurs-autorisees.json` (palette du guide d'interface) ; lancer `node scripts/check-rules.mjs` et
+     recopier les infractions **déjà là** dans les listes de tolérance, avec l'accord de la personne qui valide
+     (`docs/methode/agent-workflow-details.md` § 6) ;
+   - Fiche projet : **« Chemins sensibles »** (un seul fichier touché exige `qa-agent`) ;
+   - `vercel-react-best-practices` : supprimer la skill (et la retirer de `ux-agent` et du registre) hors React ;
+   - CI : le job `methode` d'`exemples/ci-changes.yml` (tests des contrôles, livraison de la PR) ;
    - `docs/ERREURS-CONNUES.md` : y reporter les erreurs déjà notées ailleurs dans le projet (mémoire,
      suivi), supprimer les deux lignes d'exemple ;
    - section « Propre au projet » de `orchestrateur`, `data-agent`, `ux-agent`, `ai-agent` ;
@@ -109,7 +120,9 @@ La session doit alors, dans cet ordre :
 4. Remplir `docs/ETAT-ACTUEL.md` (copié à l'étape 2), **avec la ligne « Méthode : version X »** (contenu de
    `VERSION`), et créer `SUIVI-TACHES.md` avec sa première entrée : l'installation de la méthode.
 5. **Activer et vérifier** :
-   - `git config core.hooksPath .githooks` (hook Git ; à refaire sur chaque clone, le dire dans `CLAUDE.md`) ;
+   - `git config core.hooksPath .githooks` (hook Git ; fait à chaque session Claude par `session-start.sh`, à la
+     main sur un poste) ;
+   - `node --test scripts/tests/controles.test.mjs` — tests des contrôles au vert ;
    - `node scripts/verifier-methode.mjs` — doit finir sans ✖ (Fiche projet remplie, hooks présents,
      frontmatter lisible, scripts valides, dossiers de code existants) ;
    - `node scripts/check-rules.mjs` — vert, ou les violations trouvées deviennent des issues ;
@@ -181,6 +194,20 @@ que le modèle n'écrivait pas ; elles sont reprises dans la 1.2.0.
 - **La CI se protège elle-même** : délais, annulation des exécutions dépassées, tests de fumée sur le site
   déployé, secrets et fichiers sensibles refusés → `exemples/`, `check-secrets-suivis.mjs`.
 
+## Leçons de VieSolution, suite : les contrôles mécaniques (6-15 nov. 2026)
+
+Reprises dans la 1.7.0.
+- **Une règle écrite depuis des mois peut être sautée chaque jour** : « `qa-agent` avant tout commit de 2 fichiers »
+  l'était ; le verrou (trace écrite par un hook à la fin d'un vrai `qa-agent`, commit refusé sans elle) l'a rendue
+  réelle — et le hook Git ne tournait même pas dans les sessions cloud.
+- **Un parcours unique vaut mieux que des règles éparses** : la skill `tache`, rappelée à chaque message, enchaîne
+  les règles dans l'ordre ; les skills sont choisies et chargées **avant** le premier geste.
+- **Moins de code se mesure** : lignes estimées dans le plan, lignes réelles à la livraison, `simplify` et
+  `tech-debt` avant `qa-agent`, l'ancien code supprimé dans la même PR.
+- **L'architecture se protège sans tout refaire** : les infractions existantes sont listées et tolérées, seules les
+  nouvelles sont refusées, et la liste ne fait que rétrécir.
+- **Les règles chargées à chaque session restent courtes** ; le détail et l'historique vont dans `docs/methode/`.
+
 ## Tenir le modèle à jour
 
 Une amélioration de la méthode faite dans un projet (règle, agent, skill, script) se reporte ici par une PR
@@ -188,6 +215,13 @@ Une amélioration de la méthode faite dans un projet (règle, agent, skill, scr
 autres projets à leur prochaine session de travail ; la ligne « Méthode : version X » de leur
 `docs/ETAT-ACTUEL.md` dit où chacun en est. Source du classement commun / propre :
 `docs/methode/COMMUN.md` dans VieSolution-CSF.
+
+Depuis la 1.7.0, les deux sens sont des skills du modèle, pour ne plus réécrire la démarche :
+- **monter** — dans le projet qui a amélioré la méthode : « remonte ça dans la méthode » (skill
+  `remonter-methode`) ; elle produit la version suivante, avec sa section « Passer de … à … » au CHANGELOG ;
+- **descendre** — dans chaque autre projet : « mets la méthode à jour » (skill `methode-a-jour`) ; elle lance
+  `node scripts/comparer-methode.mjs <methode-travail>`, applique dans l'ordre les sections « Passer de … à … »,
+  ne remplace rien de propre au projet et ouvre une PR en brouillon.
 
 ## Limites connues
 
@@ -201,8 +235,12 @@ autres projets à leur prochaine session de travail ; la ligne « Méthode : ver
   par `tech-lead` et `nouveau-projet`). Les créer
   dans le projet seulement s'il en a besoin.
 - `hook-lint-fix.mjs` ne connaît qu'ESLint ; une autre pile ajoute son correcteur dans `CORRECTEURS`.
-- `check-rules.mjs` n'a que deux règles génériques actives (secret en dur, marqueur de conflit) : sa valeur
-  vient des règles que chaque projet y ajoute à partir de ses propres incidents.
+- `check-rules.mjs` n'a que quelques règles génériques actives d'emblée (secret en dur, marqueur de conflit,
+  contenus de démonstration, date sans fuseau…) ; les règles d'architecture attendent leurs listes : sa valeur vient
+  des règles et des listes que chaque projet remplit à partir de ses propres incidents.
+- Le verrou `qa-agent` repose sur les hooks `SubagentStart` / `SubagentStop` de Claude Code et sur les champs
+  `agent_type` et `agent_transcript_path` (vérifiés le 14 nov. 2026) : une version de Claude Code qui les change
+  le casserait — le hook écrit alors « trace non écrite » et le commit reste refusé, il ne laisse rien passer.
 - `check-secrets-suivis.mjs` ne voit que l'état courant de l'index Git : un secret déjà poussé reste dans
   l'historique (le révoquer ; `exemples/secret-scan.yml` parcourt l'historique). Sa liste de fichiers et de
   motifs est générique ; un projet ajoute ses propres fichiers sensibles. Il refuse **tout** `.env.*` suivi qui
@@ -215,9 +253,11 @@ autres projets à leur prochaine session de travail ; la ligne « Méthode : ver
   même outil de test.
 - Les exemples de CI (`exemples/`) supposent GitHub Actions, Node et Playwright ; la commande de déploiement
   de `ci-staging-smoke.yml` est à brancher (Vercel en commentaire).
-- Le hook Git n'est actif qu'après `git config core.hooksPath .githooks`, à refaire sur chaque clone ;
-  `verifier-methode.mjs` le signale. La CI reste le filet : la commande Vérification doit y tourner.
+- Le hook Git n'est actif qu'après `git config core.hooksPath .githooks` : fait à chaque session Claude par
+  `session-start.sh`, à refaire à la main sur un poste ; `verifier-methode.mjs` le signale. La CI reste le filet : la commande Vérification doit y tourner.
 - `scripts/check-suivi.js` est un module ES en `.js` : il demande Node ≥ 22.12 (détection automatique) ou
   `"type": "module"` dans le `package.json` du projet.
+- `frontend-design` a été copiée d'un plugin installé, sans dépôt ni commit relevés : `verifier-methode.mjs` le
+  signale (⚠) et `skills-check.mjs` ne peut pas suivre sa source.
 - `budget-jetons.md` renvoie à des constats datés de VieSolution : ils expliquent la règle, ils ne s'appliquent
   pas tels quels.
