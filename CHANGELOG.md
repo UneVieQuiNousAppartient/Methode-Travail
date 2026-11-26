@@ -5,6 +5,62 @@ Version courante : fichier `VERSION`. Chaque projet note la version reçue dans 
 Numérotation : majeure = changement qui demande de refaire l'installation ; mineure = ajout ;
 correctif = précision de texte.
 
+## 1.7.1 — 2026-11-26 — Allègement du contexte (conseils officiels d'Anthropic)
+
+Demande de Camille (25 nov. 2026) : « cette méthode est efficace ? cela suit les règles d'Anthropic ? ». Vérification
+faite dans la documentation officielle de Claude Code (memory, best-practices, sub-agents, skills, hooks-guide) :
+la méthode les suit sur les hooks, les agents, les skills et le changement de session, mais chargeait ≈ 330 lignes
+à chaque session pour moins de 200 conseillées (« longer files … reduce adherence »).
+
+### Changé
+- **Texte lu à chaque session : ≈ 330 → 132 lignes.** `agent-workflow.md` (104 → 49 lignes) et `budget-jetons.md`
+  (71 → 23) réécrits courts, sans rien perdre : budget de tours, liste des agents et bug → issue vont en
+  `docs/methode/agent-workflow-details.md` § 8 ; grille des modèles par agent en `budget-jetons-details.md`.
+- **`suivi-taches.md` et `regles-metier.md` ne se chargent qu'avec leurs fichiers** (`paths:` : suivi, état, erreurs
+  connues, scripts de contrôle). L'essentiel reste dans `CLAUDE.md` (ordre de lecture, livraison), et la livraison est
+  contrôlée en CI et par la skill `livrer`. `regles-metier.md` : comme VieSolution depuis le 15 nov. 2026.
+- **`ux-agent` ne précharge plus qu'une skill** (`web-design-guidelines`, celle de sa « Revue obligatoire ») : chaque
+  skill de `skills:` est chargée en entier à chaque appel. `frontend-design` et `vercel-react-best-practices` se
+  nomment dans la délégation (`tache`, `REGISTRE.md`).
+- **Rappel à chaque message : ≈ 130 → 50 jetons** (`hook-rappel-tache.mjs`).
+- **Skill `methode-a-jour`** : étape « alléger le contexte » — plugins inutiles coupés dans `enabledPlugins`,
+  connecteurs du compte jamais utilisés proposés à la personne qui valide (réglage du compte, valable pour tous ses
+  projets), seuil de 200 lignes.
+- **`verifier-methode.mjs`** : compte le texte lu à chaque session (⚠ au-delà de 200 lignes) et avertit si
+  `ux-agent` précharge plus d'une skill.
+- `CLAUDE.md` : ordre de lecture resserré (règles toujours lues, règles chargées avec leurs fichiers) ; l'essentiel
+  du suivi y reste lu à chaque session (« Non fait dans ce round », jamais ✅ non vérifié, aucun secret, tout poussé,
+  `grep` des erreurs connues avant un diagnostic).
+- `budget-jetons.md` gagne une ligne « Contexte » : nouvelle session (ou `/clear`) entre deux chantiers sans lien.
+- Revue indépendante (Opus, lecture seule) : aucun bloquant ; consignes affaiblies rétablies dans la règle (skill
+  `nouveau-projet` d'abord, ordre de réutilisation, « ne jamais recoder », `simplify`/`tech-debt` jamais sautées, coût
+  réel = agents + session) ; `verifier-methode` lit aussi `skills:` en liste YAML et compte les lignes comme `wc -l`.
+
+### Vérifié
+- `node --test modele/scripts/tests/controles.test.mjs` : 16 tests au vert.
+- `node scripts/verifier-methode.mjs --gabarit` (depuis `modele/`) : 0 ✖, « texte lu à chaque session : 132
+  lignes » ; dans une copie, règle sans `paths:` → 194 lignes comptées, et 2 skills préchargées → ⚠ (contrôles vus
+  en action, puis copie supprimée).
+
+### Pas encore vérifié
+- Le chargement conditionnel (`paths:`) n'a pas été observé dans une vraie session du modèle (il l'est dans
+  VieSolution pour `regles-metier.md`).
+
+### Passer de 1.7.0 à 1.7.1
+1. Remplacer `.claude/rules/agent-workflow.md` et `budget-jetons.md` par ceux du modèle, en reportant les ajouts
+   propres au projet (agents propres, constats) dans `docs/methode/agent-workflow-details.md` § 8 et
+   `budget-jetons-details.md` (ajouter leurs nouvelles sections) — pas dans la règle.
+2. Ajouter le bloc `paths:` en tête de `suivi-taches.md` et de `regles-metier.md` (copier celui du modèle ; ajouter
+   les chemins propres au projet s'il en a).
+3. `ux-agent.md` : `skills: [web-design-guidelines]` (garder une skill propre au projet seulement si elle sert à
+   chaque appel) ; `REGISTRE.md` et skill `tache` : lignes `frontend-design` / `vercel-react-best-practices`.
+4. Copier `scripts/hook-rappel-tache.mjs` (adapter le texte s'il nomme le projet), `scripts/verifier-methode.mjs`
+   et `.claude/skills/methode-a-jour/SKILL.md` ; fusionner l'ordre de lecture de `CLAUDE.md`.
+5. Faire l'étape « alléger le contexte » de `methode-a-jour` (plugins, connecteurs), avec l'accord de la personne
+   qui valide.
+6. `node scripts/verifier-methode.mjs` : « texte lu à chaque session » sous 200 lignes ; « Méthode : version 1.7.1 ».
+Coût attendu : ≈ 30 à 60 k par projet (≈ 100 à 200 k si le projet passe directement de 1.2.0 à 1.7.1).
+
 ## 1.7.0 — 2026-11-24 — Contrôles mécaniques, parcours `tache`, mise à jour en une commande (apports de VieSolution, nov. 2026)
 
 Report dans `modele/` de tout ce qui est **commun** dans les améliorations de méthode de VieSolution-CSF depuis le

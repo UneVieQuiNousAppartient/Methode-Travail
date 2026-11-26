@@ -277,6 +277,21 @@ else {
     const absentes = skills.map((s) => path.basename(s)).filter((n) => !texte.includes(`\`${n}\``));
     absentes.length ? avert(`skills absentes du registre : ${absentes.join(", ")}`) : ok("toutes les skills sont au registre");
 }
+// Méthode 1.7.1 : texte lu à chaque session (CLAUDE.md + règles sans `paths:`), conseil d'Anthropic < 200 lignes.
+{
+    const regles = lister(path.join(RACINE, ".claude", "rules"), (p) => p.endsWith(".md"));
+    const toujours = [fichierClaude, ...regles.filter((r) => !/^---\r?\n[\s\S]*?^paths:/m.test(lire(r).split(/\r?\n---/)[0] + "\n"))]
+        .filter((f) => existsSync(f));
+    const lignes = toujours.reduce((n, f) => n + lire(f).replace(/\n$/, "").split("\n").length, 0); // comme wc -l
+    (lignes <= 200 ? ok : avert)(`texte lu à chaque session : ${lignes} lignes (${toujours.map(rel).join(", ")})${lignes <= 200 ? "" : " — au-delà de 200 (conseil d'Anthropic) : déplacer le détail dans docs/methode/ ou ajouter paths: à une règle"}`);
+    const ux = path.join(RACINE, ".claude", "agents", "ux-agent.md");
+    // forme en ligne `skills: [a, b]` ou liste YAML `skills:` puis `- a` / `- b`
+    const fm = existsSync(ux) ? (/^---\r?\n([\s\S]*?)\r?\n---/.exec(lire(ux))?.[1] ?? "") : "";
+    const enLigne = /^skills:\s*\[([^\]]*)\]/m.exec(fm);
+    const pre = enLigne ? enLigne[1].split(",").filter((s) => s.trim())
+        : (/^skills:\s*\r?\n((?:\s*-\s*.+\r?\n?)+)/m.exec(fm)?.[1] ?? "").split("\n").filter((l) => /^\s*-\s*\S/.test(l));
+    if (pre.length > 1) avert(`ux-agent précharge ${pre.length} skills : chacune est chargée en entier à chaque appel — en garder une, nommer les autres dans la délégation`);
+}
 if (!existsSync(path.join(RACINE, ".claude", "skills", "tache", "SKILL.md"))) erreur("skill `tache` absente (parcours unique d'une tâche)");
 const tests = path.join(dossierScripts, "tests", "controles.test.mjs");
 if (existsSync(tests)) {

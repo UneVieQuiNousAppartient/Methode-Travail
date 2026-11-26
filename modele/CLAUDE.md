@@ -11,11 +11,11 @@
    4. documents du projet (`docs/projets/<slug>/`).
 - **Toute demande de changement** : skill `tache` (parcours unique en 8 étapes) ; skills et agents qui les
   chargent : `.claude/skills/REGISTRE.md` ; où va le code : `docs/ARCHITECTURE.md` s'il existe.
-- **Jamais `SUIVI-TACHES.md` en entier** (grep + lecture ciblée) — règle `.claude/rules/suivi-taches.md`.
-- Budget et modèles : `.claude/rules/budget-jetons.md` — tout appel d'agent nomme son modèle (Opus pour le
-  développement, Sonnet pour le contenu, Haiku pour les automatisations quotidiennes).
-- Processus : `.claude/rules/agent-workflow.md` (plan avant action, `qa-agent` avant tout commit de 2+ fichiers,
-  vérifié par le hook Git). Détails et exemples : `docs/methode/*-details.md`, lus seulement au besoin.
+- **Jamais `SUIVI-TACHES.md` en entier** (grep + lecture ciblée). Chaque livraison : entrée au suivi (avec « Non
+  fait dans ce round » ; jamais ✅ sur du non vérifié ; aucun secret) et `docs/ETAT-ACTUEL.md` à jour, puis tout est
+  **poussé** (skill `livrer`, contrôlé en CI). Avant de diagnostiquer une erreur : `grep` dans `docs/ERREURS-CONNUES.md`.
+- Toujours lues : `.claude/rules/agent-workflow.md` (plan, accord, `qa-agent`) et `budget-jetons.md` (coût, modèle
+  nommé). Chargées avec leurs fichiers : `suivi-taches.md`, `regles-metier.md`. Détails : `docs/methode/`, au besoin.
 
 ## Le projet
 
@@ -48,8 +48,7 @@ fiche restée à « <à remplir…> »). Une ligne par clé ; « — » quand c'
 La commande **Vérification** est la seule qui fait foi avant un commit : si elle passe en local, la CI passe.
 Elle inclut `node scripts/check-rules.mjs` (règles métier mécaniques, `.claude/rules/regles-metier.md`) et
 `node scripts/check-secrets-suivis.mjs` (aucun `.env`, jeton ou clé privée suivi par Git).
-Détail possible des étapes qu'elle enchaîne (pour diagnostiquer un échec) :
-- `<typecheck>` · `<lint>` · `<tests unitaires>` · `<build>` · `<audit des dépendances>`
+<!-- Étapes qu'elle enchaîne, pour diagnostiquer un échec : <typecheck> · <lint> · <tests> · <build> · <audit> -->
 
 Hooks Git (une fois par clone ; fait automatiquement par `scripts/session-start.sh` dans une session Claude) :
 `git config core.hooksPath .githooks`. Ils bloquent un commit qui viole une règle (`check-rules`), suit un

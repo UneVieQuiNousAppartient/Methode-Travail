@@ -15,6 +15,10 @@ d'ajouter une skill ou un plugin**. Chaque projet complète ce registre (skills 
 | **3. Plugin** | compte claude.ai (plugin activé) | seulement si le plugin est activé **et** pas désactivé par `.claude/settings.json` (`enabledPlugins`) | usage **ponctuel** |
 | *(intégrée)* | Claude Code lui-même | selon la version de Claude Code | `simplify`, `code-review`, `claude-api`… |
 
+**Préchargement (`skills:` d'un agent)** : chaque skill listée est chargée **en entier à chaque appel** de l'agent
+(doc d'Anthropic) ; en précharger une seule, celle dont l'agent a besoin à chaque fois, et nommer les autres dans la
+délégation (l'agent a l'outil `Skill`). Méthode 1.7.1.
+
 **Constat qui fonde le registre** (test réel, VieSolution, 6 nov. 2026) : une skill déclarée dans `skills:` d'un agent
 mais absente **manque sans aucun message d'erreur** — l'agent travaille sans. `scripts/check-skills-agents.mjs`
 (lancé au démarrage de chaque session) le signale. Un sous-agent n'a accès qu'aux skills préchargées, sauf s'il a
@@ -44,9 +48,9 @@ l'outil `Skill`.
 
 | Skill | Origine | Quand | Préchargée par |
 |---|---|---|---|
-| `frontend-design` | Anthropic, Apache 2.0 | direction visuelle, éviter le rendu générique — dans le cadre du guide d'interface | `ux-agent`, `ux-designer` |
+| `frontend-design` | Anthropic, Apache 2.0 | direction visuelle, éviter le rendu générique — dans le cadre du guide d'interface | `ux-designer` ; `ux-agent` la charge au besoin (nommée dans la délégation) |
 | `web-design-guidelines` | Vercel, MIT | revue d'interface, accessibilité | `ux-agent` (pas `ux-designer` : il n'a ni WebFetch ni Bash) |
-| `vercel-react-best-practices` | Vercel, MIT | écrire ou revoir du React / Next.js — **projet React seulement** (sinon supprimer le dossier et la retirer de `ux-agent`) | `ux-agent` |
+| `vercel-react-best-practices` | Vercel, MIT | écrire ou revoir du React / Next.js — **projet React seulement** (sinon supprimer le dossier) | — (`ux-agent` la charge au besoin, nommée dans la délégation) |
 | `architecture` | Anthropic, Apache 2.0 | décision d'architecture → ADR dans `docs/adr/` | — |
 | `tech-debt` | Anthropic, Apache 2.0 | **à chaque tâche qui code**, limitée aux fichiers touchés, avant `qa-agent` (« Moins de code ») ; audit complet sur demande | — (agent principal ; nommée dans la délégation) |
 

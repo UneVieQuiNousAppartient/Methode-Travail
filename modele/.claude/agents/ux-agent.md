@@ -2,11 +2,12 @@
 name: ux-agent
 description: Composants frontend, parcours utilisateur, accessibilité
 tools: Read, Edit, Grep, Bash, Skill
-# Méthode 1.7.0 : skills préchargées (registre .claude/skills/REGISTRE.md). Projet sans React : retirer
-# vercel-react-best-practices (et la skill du dépôt). VieSolution a passé cet agent en `sonnet` le 14 nov. 2026 pour
-# l'exécution d'interface déjà approuvée ; le modèle reste Opus par défaut : le changement est une décision par projet,
-# écrite ici avec sa raison (budget-jetons.md).
-skills: [frontend-design, web-design-guidelines, vercel-react-best-practices]
+# Méthode 1.7.1 : UNE skill préchargée (chaque skill de `skills:` est chargée en entier à chaque appel, doc
+# d'Anthropic) — celle de la « Revue obligatoire ». Les autres se chargent au besoin par l'outil Skill, nommées dans
+# la délégation : `frontend-design` (maquette, direction visuelle), `vercel-react-best-practices` (projet React).
+# VieSolution a passé cet agent en `sonnet` le 14 nov. 2026 pour l'exécution d'interface déjà approuvée ; le modèle
+# reste Opus par défaut : le changement est une décision par projet, écrite ici avec sa raison (budget-jetons.md).
+skills: [web-design-guidelines]
 model: opus
 maxTurns: 25
 memory: project

@@ -1,7 +1,7 @@
 # Budget de jetons — détails
 
-Complément de `.claude/rules/budget-jetons.md` (méthode 1.7.0). **La règle fait foi** ; ce document garde les
-constats qui l'ont fait naître. Il n'est pas chargé automatiquement.
+Complément de `.claude/rules/budget-jetons.md` (méthode 1.7.1). **La règle fait foi** ; ce document garde les
+constats qui l'ont fait naître et la grille des modèles par agent (référence pour le fichier de chaque agent). Il n'est pas chargé automatiquement.
 
 ## Constats d'origine (VieSolution, 14-15 oct. 2026)
 
@@ -31,3 +31,16 @@ par jeton. Le modèle reste **Opus par défaut** : chaque projet décide, et éc
 Chaque message relit toute la conversation : une session qui enchaîne les chantiers coûte plus cher à chaque
 échange. Après un chantier complet, conseiller une nouvelle session (skill `tache`, étape 8) — l'état est dans
 `docs/ETAT-ACTUEL.md` et le suivi, rien ne se perd.
+
+## Grille de modèles par agent (déplacée de la règle en 1.7.1)
+
+| Modèle | Agents |
+|---|---|
+| **Opus** — défaut | les 5 agents de conception, `prompt-agent`, `orchestrateur`, `data-agent`, `ai-agent`, `ux-agent`, `qa-agent`, `securite`, `revue-integration`, agents métier qui demandent du jugement |
+| **Sonnet** | contenu (articles, posts, traductions), précisé à l'appel ; au choix du projet, `ux-agent` pour l'exécution d'interface déjà approuvée (raison écrite dans son fichier ; authentification, argent ou données de clients → `model: opus` à l'appel) |
+| **Haiku** | automatisations quotidiennes, tri, classement, contrôles mécaniques |
+| **Fable** | sur accord seulement |
+
+Priorité du modèle d'un sous-agent (doc d'Anthropic) : paramètre de l'appel > `model` du fichier de l'agent >
+`CLAUDE_CODE_SUBAGENT_MODEL` > session. Cette variable ne change pas les agents intégrés `Explore` et `Plan` :
+nommer leur modèle à l'appel aussi. `/usage` montre ce que coûte chaque type de sous-agent.

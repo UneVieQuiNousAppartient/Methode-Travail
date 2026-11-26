@@ -41,6 +41,14 @@ l'écart) et lignes estimées.
   la procédure du CHANGELOG — les infractions **existantes** se tolèrent avec l'accord de la personne qui valide, les
   nouvelles se refusent.
 - Mettre « Méthode : version <cible> » dans `docs/ETAT-ACTUEL.md`.
+- **Alléger le contexte** (méthode 1.7.1) : chaque plugin et chaque connecteur actif ajoute ses outils et ses
+  consignes à **toutes** les sessions, même inutilisés (doc d'Anthropic). Lister ceux que la session voit, puis
+  proposer en une liste simple : plugins inutiles au projet → `"<nom>@<marketplace>": false` dans `enabledPlugins`
+  de `.claude/settings.json` (réglage du dépôt) ; connecteurs du compte jamais utilisés (courriel, agenda, réseaux
+  sociaux…) → à couper par la personne qui valide dans les réglages des connecteurs de claude.ai (réglage du compte :
+  il vaut pour tous ses projets, le dire). Rien ne se coupe sans son « oui ».
+- Texte lu à chaque session (`CLAUDE.md` + règles sans `paths:`) : **moins de 200 lignes** (conseil d'Anthropic) ;
+  `verifier-methode.mjs` le compte. Au-delà, déplacer le détail dans `docs/methode/` ou ajouter `paths:` à une règle.
 
 ## 4. Vérifier et livrer
 - `node scripts/verifier-methode.mjs` (aucun ✖), `node --test scripts/tests/controles.test.mjs`, la commande
