@@ -63,11 +63,11 @@ projet de `CLAUDE.md` (« Dossiers de code », « Routes publiques », « Chemin
 | **Garde Git** | `scripts/hook-garde-git.mjs` (PreToolUse Bash) | refuse `--no-verify`, `git commit -n`, un `core.hooksPath` détourné et toute écriture de la trace par une commande |
 | **Livraison d'une PR** | `scripts/check-livraison-pr.mjs` (CI, PR) | **refuse** une PR qui touche le code sans entrée au suivi (en-tête changé) ni `docs/ETAT-ACTUEL.md` ; avertit pour une page `maquette-*` restante (aussi au commit) et pour un nouvel écran ou > 800 lignes sans `IMPLEMENTATION-PLAN.md` |
 | **Taille du code** | `scripts/check-taille-diff.mjs` (pre-commit) | § 3 ; jamais bloquant |
-| **Rappel du parcours** | `scripts/hook-rappel-tache.mjs` (UserPromptSubmit) | rappelle à chaque message la skill `tache` (≈ 130 jetons) ; jamais bloquant |
+| **Rappel du parcours** | `scripts/hook-rappel-tache.mjs` (UserPromptSubmit) | rappelle à chaque message la skill `tache` (≈ 50 jetons depuis la 1.7.1) ; jamais bloquant |
 | **Skills et tâches semblables** | `scripts/hook-rappel-skills.mjs` (PostToolUse) | à la première modification d'un dossier de code : rappel si aucune skill chargée, et au plus 3 entrées du suivi sur ce fichier ; jamais bloquant |
 | **Skills des agents** | `scripts/check-skills-agents.mjs` (démarrage de session) | signale chaque skill du champ `skills:` d'un agent introuvable ; jamais bloquant |
 | **Tests des contrôles** | `scripts/tests/controles.test.mjs` (`node --test`, CI) | un cas bloqué et un cas qui passe par contrôle |
-| Méthode | `scripts/verifier-methode.mjs` | installation complète et à jour (§ 8 du script : contrôles 1.7.0) |
+| Méthode | `scripts/verifier-methode.mjs` | installation complète et à jour (partie 8 du script : contrôles 1.7.0, texte lu à chaque session, préchargement de `ux-agent`) |
 | **Comparaison au modèle** | `scripts/comparer-methode.mjs <methode-travail>` | dit quels fichiers du projet sont identiques, absents ou différents du modèle (skills `methode-a-jour`, `remonter-methode`) |
 
 Constat qui a motivé le verrou (VieSolution, 14 nov. 2026) : la règle « `qa-agent` avant tout commit de 2 fichiers »
@@ -120,3 +120,24 @@ listes de tolérance (avec l'accord de la personne qui valide), puis ne plus jam
 - `simplify` puis `tech-debt` avant `qa-agent` sur toute tâche qui code.
 - Aucun rapport d'agent accepté sans relecture du diff réel, tests compris.
 - Aucun commit de 2 fichiers ou plus (ou 1 sensible) sans vrai `qa-agent` — vérifié par le hook, pas par un jugement.
+
+## § 8. Déléguer, agents du modèle (déplacé de la règle en 1.7.1)
+
+**Budget de tours (`maxTurns`)** : un agent qui s'arrête avant ses vérifications rend un travail que personne n'a
+contrôlé. Avant de déléguer : `maxTurns` couvre exploration + modifications + vérifications ; le prompt dit **quand
+écrire** le livrable (« vers le tour 12 ») et donne les chemins de départ. Un agent arrêté se **reprend** (même
+agent, message de suite), il ne se relance pas à froid. Anthropic le rappelle : un sous-agent coûte surtout des
+jetons (il recollecte le contexte) et déléguer ne rend pas la réponse meilleure — on délègue pour le parallèle, pour
+garder une sortie longue hors de la conversation, ou pour un relecteur qui n'a pas vu le code s'écrire.
+
+**Agents du modèle** :
+- Reformulation : `prompt-agent`.
+- Conception (documents seulement, skill `nouveau-projet`) : `product-manager`, `data-architect`,
+  `solution-architect`, `ux-designer`, `tech-lead`.
+- Développement : `orchestrateur` (découpage), `data-agent`, `ux-agent`, `ai-agent`, `qa-agent` (toujours en dernier).
+- Revue (lecture seule, Opus, verdict binaire) : `securite`, `revue-integration`.
+- **Propres au projet** : à lister ici (agents métier, automatisations).
+
+**Bug confirmé** : issue GitHub tout de suite (titre précis, portée vérifiée par `grep` sur tout le dépôt, label
+`bug`), lien donné à la personne qui valide ; si un agent risque de reproduire le défaut, un rappel dans son fichier
+— ou mieux, une règle de `check-rules.mjs`.

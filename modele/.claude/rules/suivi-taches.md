@@ -1,3 +1,16 @@
+---
+# Méthode 1.7.1 : chargée seulement quand on touche ces fichiers (conseil d'Anthropic : texte lu à chaque session
+# < 200 lignes). L'essentiel reste lu à chaque session dans CLAUDE.md (ordre de lecture, jamais le suivi en entier),
+# et la livraison est contrôlée en CI (check-livraison-pr.mjs) et par la skill `livrer`.
+paths:
+  - "SUIVI-TACHES.md"
+  - "docs/ETAT-ACTUEL.md"
+  - "docs/ERREURS-CONNUES.md"
+  - "docs/suivi/**"
+  - "scripts/check-suivi.js"
+  - "scripts/check-livraison-pr.mjs"
+---
+
 # Suivi des tâches — le travail n'est pas fini tant qu'il n'est pas consigné
 
 Demande de Camille (12 août 2026) : un suivi non commité, ou dont l'en-tête ment sur sa fraîcheur, est pire qu'un

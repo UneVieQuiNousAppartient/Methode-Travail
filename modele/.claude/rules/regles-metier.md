@@ -1,3 +1,13 @@
+---
+# Méthode 1.7.1 (comme VieSolution depuis le 15 nov. 2026) : chargée seulement quand on touche ces fichiers.
+paths:
+  - "scripts/check-rules.mjs"
+  - "scripts/check-secrets-suivis.mjs"
+  - "scripts/architecture-existant.json"
+  - "scripts/couleurs-autorisees.json"
+  - "docs/ERREURS-CONNUES.md"
+---
+
 # Règles métier — un incident récurrent devient une règle mécanique
 
 Constat (KHI Educ, septembre 2026) : quatre revues successives ont refusé le même lot pour des témoignages,

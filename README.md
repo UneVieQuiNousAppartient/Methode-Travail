@@ -21,7 +21,7 @@ règles, agents et skills doivent donc vivre dans le `.claude/` de chaque dépô
 | **Verrou `qa-agent`** | `scripts/hook-qa-trace.mjs` + `check-qa-trace.mjs` + `hook-garde-git.mjs` | Un commit de 2 fichiers ou plus (ou 1 « chemin sensible ») est refusé tant qu'un vrai `qa-agent` n'a pas dit « VERDICT QA : OK » sur ces fichiers exacts ; Claude ne peut pas sauter les hooks |
 | **Contrôles de livraison** | `scripts/check-livraison-pr.mjs`, `check-taille-diff.mjs`, `hook-rappel-skills.mjs`, `check-skills-agents.mjs` | PR refusée en CI si le code part sans suivi ni `ETAT-ACTUEL` ; avertissements « moins de code », maquette restante, nouvel écran sans plan ; tâches semblables déjà faites ; skill d'agent manquante. Chemins lus dans la Fiche projet (`lib-controles.mjs`), tests dans `scripts/tests/` |
 | **Mise à jour d'un projet** | skills `methode-a-jour` et `remonter-methode`, `scripts/comparer-methode.mjs` | « Mets la méthode à jour » / « remonte ça dans la méthode » : comparaison fichier par fichier avec `modele/`, puis la procédure du CHANGELOG |
-| Suivi | `.claude/rules/suivi-taches.md` | `ETAT-ACTUEL.md` lu en premier, suivi jamais lu en entier, entrée obligatoire à chaque livraison |
+| Suivi | `.claude/rules/suivi-taches.md` (chargée avec ses fichiers) | `ETAT-ACTUEL.md` lu en premier, suivi jamais lu en entier, entrée obligatoire à chaque livraison (contrôlée en CI) |
 | Règles métier | `.claude/rules/regles-metier.md` + `scripts/check-rules.mjs` | Un incident de contenu ou de sécurité récurrent devient une règle mécanique (id, incident, motif, dossiers, message), pas un rappel dans un agent |
 | Réglages | `.claude/settings.json` | Agents en Opus par défaut ; hooks SessionStart, PreToolUse, PostToolUse ; liste de plugins à couper selon le projet |
 | Hooks Claude Code | `scripts/hook-protect-files.mjs`, `scripts/hook-lint-fix.mjs` | Refus d'écrire `.env*`, verrous, artefacts ; `eslint --fix` sur chaque fichier écrit (si ESLint est installé) |
@@ -207,6 +207,17 @@ Reprises dans la 1.7.0.
 - **L'architecture se protège sans tout refaire** : les infractions existantes sont listées et tolérées, seules les
   nouvelles sont refusées, et la liste ne fait que rétrécir.
 - **Les règles chargées à chaque session restent courtes** ; le détail et l'historique vont dans `docs/methode/`.
+
+## Sobriété du contexte (1.7.1, d'après la documentation d'Anthropic, 25 nov. 2026)
+
+- **Texte lu à chaque session sous 200 lignes** (« plus c'est long, moins c'est suivi ») : `CLAUDE.md` +
+  `agent-workflow.md` + `budget-jetons.md` ≈ 130 lignes ; `suivi-taches.md` et `regles-metier.md` ne se chargent
+  qu'avec leurs fichiers (`paths:`) ; le détail est dans `docs/methode/`. `verifier-methode.mjs` compte ces lignes.
+- **Ce qui doit arriver à chaque fois est un hook, pas une phrase** : verrou `qa-agent`, garde Git, suivi en CI.
+- **Une seule skill préchargée par agent** (chaque skill de `skills:` est chargée en entier à chaque appel) ; les
+  autres se nomment dans la délégation.
+- **Rappel à chaque message très court** (≈ 50 jetons) ; **plugins et connecteurs inutiles coupés** (skill
+  `methode-a-jour`) ; **nouvelle session** entre deux chantiers sans lien (skill `tache`, étape 8).
 
 ## Tenir le modèle à jour
 

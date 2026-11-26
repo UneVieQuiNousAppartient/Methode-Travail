@@ -60,8 +60,8 @@ Demande de Camille (13 nov. 2026, redite deux fois : « toujours chercher les sk
 **chargées** (outil `Skill`) avant le premier geste — pas seulement nommées — et la réponse le dit en une ligne :
 « Skills : … » (ou « aucune skill adaptée » et ce qui a été cherché).
 - `.claude/skills/REGISTRE.md` : quelle skill pour cette tâche ? Exemples : nouvelle route publique → `nouvelle-page` ;
-  calcul (montant, score, accès, échéance) → `tester-dabord` ; interface → `ux-agent` (précharge `frontend-design`,
-  `web-design-guidelines`) ; décision d'architecture → `architecture` ; CRM, admin, espace client → `nouveau-crm` ;
+  calcul (montant, score, accès, échéance) → `tester-dabord` ; interface → `ux-agent` (précharge `web-design-guidelines` ;
+  nommer `frontend-design` pour une maquette, `vercel-react-best-practices` en React) ; décision d'architecture → `architecture` ; CRM, admin, espace client → `nouveau-crm` ;
   bug → `incident` (et on quitte ce parcours pour le sien).
 - Aucune skill adaptée → chercher dans le catalogue de skills et de plugins, **proposer** (l'installation est le clic
   de la personne qui valide) ; sinon continuer avec les règles du projet et le dire.
