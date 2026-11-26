@@ -4,8 +4,11 @@
 # Chaque job coûteux ajoute : needs: changes + if: needs.changes.outputs.code == 'true'
 #
 # Méthode 1.7.0 (repris de VieSolution, reusable-quality.yml, 14 nov. 2026) : le job « methode » tourne TOUJOURS
-# (moins d'une minute, sans npm ci) — tests des contrôles mécaniques, puis, sur une PR, check-livraison-pr.mjs qui
-# refuse du code livré sans entrée au suivi ni docs/ETAT-ACTUEL.md à jour.
+# (moins d'une minute) — tests des contrôles mécaniques, puis, sur une PR, check-livraison-pr.mjs qui refuse du code
+# livré sans entrée au suivi ni docs/ETAT-ACTUEL.md à jour.
+# Méthode 1.7.2 (KHI Educ, 26 nov. 2026) : sans `npm ci` tant que les contrôles n'importent que Node. Si le
+# check-rules du projet importe un paquet (ex. @babel/parser chez KHI), ajouter `cache: npm` et `- run: npm ci`
+# avant les tests — sinon ERR_MODULE_NOT_FOUND et le job échoue (vu sur la PR #115 de KHI).
 
 jobs:
   changes:
@@ -49,6 +52,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          # cache: npm          # ← seulement si le check-rules du projet importe un paquet
+      # - run: npm ci          # ← idem (voir l'en-tête)
       - name: Contrôles de la méthode
         env:
           EVENT: ${{ github.event_name }}

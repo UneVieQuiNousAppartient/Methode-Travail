@@ -44,7 +44,7 @@ process.stdin.on("data", (c) => (brut += c));
 process.stdin.on("end", () => {
     let fichier = null;
     try {
-        fichier = JSON.parse(brut.replace(/^﻿/, ""))?.tool_input?.file_path ?? null;
+        fichier = JSON.parse(brut.replace(/^\ufeff/, "") /* \ufeff écrit en clair : un BOM littéral déclenche no-irregular-whitespace (eslint) */)?.tool_input?.file_path ?? null;
     } catch {
         // entrée illisible : on laisse passer
     }

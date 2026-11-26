@@ -5,6 +5,54 @@ Version courante : fichier `VERSION`. Chaque projet note la version reçue dans 
 Numérotation : majeure = changement qui demande de refaire l'installation ; mineure = ajout ;
 correctif = précision de texte.
 
+## 1.7.2 — 2026-11-26 — Leçons du passage de KHI Educ en 1.7.1
+
+Demande de Camille (26 nov. 2026) : « remonte ça dans la méthode », après le passage de KHI Educ de 1.2.0 à 1.7.1
+(PR #115 de KHIEDUC, suivi § 51). Premier passage réel de la 1.7.x sur un projet qui n'est pas VieSolution.
+
+### Corrigé
+- **`consentement-precoche`** (`modele/scripts/check-rules.mjs`) : `consent: true` écrit dans le corps d'une requête
+  (`body: JSON.stringify(` dans les 12 lignes au-dessus), envoyé **après** la case cochée, n'est plus signalé.
+  Chez KHI : 3 fausses alertes sur des formulaires corrects (avis, contact, consultation). Test ajouté (un cas bloqué,
+  un cas permis) ; mutation (exception retirée) vue en échec.
+- **`hook-protect-files.mjs`** : le BOM est écrit `\ufeff` au lieu d'un caractère invisible (`no-irregular-whitespace`
+  d'eslint, bloquant chez KHI) ; **`hook-garde-git.mjs`** : séparateur `\u0000` commenté pour `no-control-regex`.
+  Comportement inchangé (repris de KHI, `scripts/`, 26 nov. 2026).
+
+### Ajouté
+- **`check-rules.mjs` exporte `lancerReglesCommunes(args, ignorer)`** et ne se lance que s'il est exécuté
+  directement (chemin réel comparé, pour un lien symbolique ou Windows) : un projet qui a déjà son propre `check-rules` (KHI : 25 règles, analyse par `@babel/parser`) le copie
+  tel quel sous `scripts/check-rules-commun.mjs` et l'appelle, en écartant les règles qui ne lui conviennent pas.
+  KHI avait dû transformer le fichier à la main (`scripts/check-rules-commun.mjs`, 26 nov. 2026). Test ajouté
+  (import sans effet, règle écartée respectée) ; mutation (`ignorer` sans effet) vue en échec.
+- **Skill `methode-a-jour`** : premier commit de la mise à jour (le garde Git se charge en cours de session, pas le nom
+  `qa-agent` : reprendre la même conversation avant de commiter ; renommer un agent de vérification d'un autre nom) ;
+  projet qui a son propre `check-rules` ; règles de la 1.4.0 limitées à `src/` ; `npm ci` dans la CI si besoin.
+- **`exemples/ci-changes.yml`** : `cache: npm` et `npm ci` en commentaire, à activer quand le `check-rules` du projet
+  importe un paquet (chez KHI, le job « Contrôles de la méthode » a échoué en `ERR_MODULE_NOT_FOUND` sans eux).
+
+### Vérifié
+- `node --test modele/scripts/tests/controles.test.mjs` : 18 tests au vert (16 + 2) ; deux mutations vues en échec,
+  puis remises.
+- `node scripts/verifier-methode.mjs --gabarit` (depuis `modele/`) : 53 ✔, 3 ⚠ (les mêmes qu’en 1.7.1), 0 ✖.
+- eslint (`no-irregular-whitespace`, `no-control-regex`) sans erreur sur les deux hooks corrigés.
+
+### Pas encore vérifié
+- L'heuristique « 12 lignes au-dessus » de `consentement-precoche` n'a été essayée que sur les formulaires de KHI et
+  sur le test ; un état initial écrit dans les 12 lignes sous un `body: JSON.stringify(` passerait (cas jugé rare).
+
+### Passer de 1.7.1 à 1.7.2
+1. Copier `modele/scripts/check-rules.mjs` **si le projet n'a pas modifié le sien** ; sinon reporter le nouveau motif
+   de `consentement-precoche` et la fin du fichier (`export function lancerReglesCommunes`, lancement direct
+   seulement). Projet qui a un `check-rules-commun.mjs` (KHI) : le remplacer par celui du modèle tel quel et garder
+   l'appel du projet.
+2. Copier `modele/scripts/hook-protect-files.mjs`, `hook-garde-git.mjs`, `scripts/tests/controles.test.mjs` et
+   `.claude/skills/methode-a-jour/SKILL.md`.
+3. CI : si le `check-rules` du projet importe un paquet, `npm ci` dans le job `methode` (`exemples/ci-changes.yml`).
+4. `node --test scripts/tests/controles.test.mjs` (tous au vert : 18 pour le modèle), la commande Vérification ; « Méthode : version
+   1.7.2 » dans `docs/ETAT-ACTUEL.md`.
+Coût attendu : ≈ 20 à 40 k par projet.
+
 ## 1.7.1 — 2026-11-26 — Allègement du contexte (conseils officiels d'Anthropic)
 
 Demande de Camille (25 nov. 2026) : « cette méthode est efficace ? cela suit les règles d'Anthropic ? ». Vérification

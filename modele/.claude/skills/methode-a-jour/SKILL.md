@@ -11,7 +11,7 @@ effort: medium
 
 # Mettre la méthode d'un projet à jour
 
-Méthode 1.7.0. Demande de Camille (24 nov. 2026) : « je ne veux plus recommencer ces étapes, il faut que ce soit
+Méthode 1.7.0 (complétée en 1.7.2). Demande de Camille (24 nov. 2026) : « je ne veux plus recommencer ces étapes, il faut que ce soit
 commun ». Cette skill remplace le long message à réécrire à chaque mise à jour d'un projet (Ben's, KHI, Vie Solution
 Web…). Elle suit la skill `tache` (plan, accord, `qa-agent`, PR) ; elle n'en est que le contenu.
 
@@ -37,6 +37,11 @@ l'écart) et lignes estimées.
 - Copier les fichiers absents et les communs retenus (un `cp` par fichier, pas de copie en bloc de `modele/`).
 - Fusionner les fichiers à adapter : ajouter les sections et clés nouvelles du gabarit, garder le contenu du projet
   (Fiche projet : remplir les clés nouvelles, « — » si sans objet).
+- Projet qui a **déjà son propre `check-rules`** : ne pas fusionner les deux moteurs. Copier celui du modèle tel quel
+  sous `scripts/check-rules-commun.mjs` et l'appeler depuis celui du projet :
+  `lancerReglesCommunes(process.argv.slice(2), ["id-ecartee", …])` (raison de chaque règle écartée en commentaire ;
+  avec `--racine`, `--seulement` ou `--liste`, ne lancer que les règles communes : c'est ce qu'attendent les tests).
+  Les règles reprises de la 1.4.0 cherchent dans `src/` : adapter `dossiers` si le projet n'en a pas.
 - Listes propres au projet (ex. `scripts/architecture-existant.json`, `couleurs-autorisees.json`) : les remplir selon
   la procédure du CHANGELOG — les infractions **existantes** se tolèrent avec l'accord de la personne qui valide, les
   nouvelles se refusent.
@@ -56,4 +61,11 @@ l'écart) et lignes estimées.
 - `qa-agent` (Opus) sur le diff ; entrée au suivi (« Méthode passée de X à Y » + « Non fait dans ce round ») ;
   PR en brouillon. La personne qui valide fusionne.
 - Les nouveaux hooks, agents et skills ne se chargent qu'**à la session suivante** : le dire.
+- **Premier commit de la mise à jour** (méthode 1.7.2, constat KHI Educ, 26 nov. 2026) : le garde Git
+  (`hook-garde-git`) peut se charger en cours de session, mais pas le nom `qa-agent` ni ses hooks `SubagentStop` :
+  le verrou refuse alors le commit et ne peut pas être levé (le garde interdit de toucher à `core.hooksPath`, c'est
+  voulu). Faire passer la vérification, puis demander à la personne de **reprendre la même conversation** (pas une
+  nouvelle : le travail n'est pas encore poussé et serait perdu), relancer `qa-agent` et commiter. Si le projet avait
+  un agent de vérification d'un autre nom (ex. `qa`), le renommer `qa-agent` et mettre ses mentions à jour.
+- CI : si le `check-rules` du projet importe un paquet, le job `methode` fait `npm ci` (`exemples/ci-changes.yml`).
 - Rapport en mots simples : ce qui a été repris, laissé de côté (et pourquoi), à remonter, coût réel.
