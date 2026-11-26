@@ -178,6 +178,18 @@ générales :
 - **La confiance ne remplace jamais une inscription** : une revue de sécurité a trouvé, avant toute
   utilisation, une session de confiance qui survivait au retrait du dernier facteur côté base.
 
+## Leçons de KHIEDUC, troisième passage : mise à jour en 1.7.1 (26 nov. 2026)
+
+Premier projet autre que VieSolution à recevoir la 1.7.x (de 1.2.0 à 1.7.1 en une fois, ≈ 400 k jetons). Repris en 1.7.2.
+- **Un projet qui a déjà ses règles ne fusionne pas deux moteurs** : il garde son `check-rules` et appelle celui du
+  modèle, copié tel quel sous `scripts/check-rules-commun.mjs` (`lancerReglesCommunes(args, ignorer)`).
+- **Le premier commit d'une mise à jour demande une reprise de la conversation** : le garde Git se charge en cours de
+  session, pas le nom `qa-agent` ; reprendre la **même** conversation (le travail non poussé n'existe que là).
+- **La CI des contrôles hérite des dépendances du projet** : un `check-rules` qui importe un paquet a besoin de
+  `npm ci` dans le job `methode`.
+- **Une règle commune se vérifie sur le projet avant d'être activée** : `consentement-precoche` signalait le
+  `consent: true` envoyé au serveur après la case cochée ; corrigée plutôt que tolérée.
+
 ## Leçons de Ben's (15 oct. 2026)
 
 Les Jus Naturels Ben's (boutique en ligne, paiement réel, propriétaire non technique) avait des habitudes

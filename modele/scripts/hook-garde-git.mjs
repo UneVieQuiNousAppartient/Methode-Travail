@@ -60,7 +60,9 @@ function raisonCommande(commande) {
     const textes = [];
     const neutre = String(commande).replace(/'[^']*'|"(\\[\s\S]|[^"\\])*"/g, (t) => `\u0000${textes.push(t) - 1}\u0000`);
     for (const segment of neutre.split(/&&|\|\||[;&|\n]/)) {
+        // eslint-disable-next-line no-control-regex -- \u0000 est le séparateur voulu (choisi pour ne jamais apparaître dans une commande)
         const brut = segment.replace(/\u0000(\d+)\u0000/g, (_, n) => textes[Number(n)]);
+        // eslint-disable-next-line no-control-regex -- même séparateur \u0000
         const raison = raisonRefus(brut, segment.replace(/\u0000\d+\u0000/g, '""'));
         if (raison) return raison;
     }

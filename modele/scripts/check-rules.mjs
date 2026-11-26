@@ -12,18 +12,27 @@
 //   node scripts/check-rules.mjs --liste          affiche les règles actives et leur incident
 //   node scripts/check-rules.mjs --seulement a,b  ne lance que ces règles (tests)
 //
+// Projet qui a déjà son propre check-rules (méthode 1.7.2, cas de KHI Educ) : copier ce fichier tel quel sous
+// scripts/check-rules-commun.mjs et, dans le check-rules du projet, appeler
+// `lancerReglesCommunes(process.argv.slice(2), ["id-ecartee", …])` (code de sortie 0 ou 1) — voir README.
+//
 // Exception ponctuelle et assumée sur une ligne : y écrire `regle-ok: <id>` en commentaire,
 // avec la raison. Une exception sans raison se refuse en revue.
 //
 // Sans dépendance : Node seul. Modèle « methode-travail » (patron repris de KHI Educ, 15 oct. 2026).
 import { execSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { lireConfig } from "./lib-controles.mjs";
 
 const ICI = fileURLToPath(import.meta.url);
-const args = process.argv.slice(2);
+
+/**
+ * Lance les règles et renvoie le code de sortie (0 : aucune violation, 1 sinon). `ignorer` : règles que le projet
+ * écarte (raison écrite à l'appel) — sauf avec --seulement (tests).
+ */
+export function lancerReglesCommunes(args = process.argv.slice(2), ignorer = []) {
 const iRacine = args.indexOf("--racine");
 const RACINE = iRacine >= 0 ? path.resolve(args[iRacine + 1] || ".") : path.join(path.dirname(ICI), "..");
 
@@ -108,7 +117,15 @@ const RULES = [
         incident: "Projet client, oct. 2026 : 7 formulaires (diagnostic, prise de rendez-vous, lead magnet, estimateurs, témoignages) avaient la case de consentement cochée par défaut — contraire à la Loi 25, qui exige un consentement manifeste.",
         // Côté interface seulement : un état ou une valeur initiale de consentement à true.
         // Les routes API (src/app/api/) écrivent consent: true APRÈS avoir exigé la case cochée (z.literal(true)).
-        motif: (ligne) => /consent/i.test(ligne) && /(useState(<[^>]*>)?\(\s*true\s*\)|\bconsent\w*['"]?\s*:\s*true\b|(\?\?|\|\|)\s*true\b|checked=\{\s*true\s*\}|\.default\(\s*true\s*\)|defaultChecked(?!=\{\s*false))/i.test(ligne),
+        // KHI Educ, 26 nov. 2026 : `consent: true` écrit dans le corps d'une requête (`body: JSON.stringify(`), envoyé
+        // APRÈS que la case a été cochée, n'est pas un consentement précoché (3 fausses alertes sur des formulaires).
+        motif: (ligne, _rel, i, lignes) => {
+            if (!/consent/i.test(ligne)) return false;
+            if (/(useState(<[^>]*>)?\(\s*true\s*\)|(\?\?|\|\|)\s*true\b|checked=\{\s*true\s*\}|\.default\(\s*true\s*\)|defaultChecked(?!=\{\s*false))/i.test(ligne)) return true;
+            if (!/\bconsent\w*['"]?\s*:\s*true\b/i.test(ligne)) return false;
+            const avant = lignes ? lignes.slice(Math.max(0, i - 12), i + 1).join("\n") : ligne;
+            return !/\bbody\s*:\s*JSON\.stringify\(/.test(avant); // corps de requête seulement (un champ `body` de formulaire ne compte pas)
+        },
         dossiers: ["src"],
         extensions: /\.(m?[jt]sx?)$/i,
         exclure: /(^src\/app\/api\/|\.(test|spec)\.[jt]sx?$)/,
@@ -295,15 +312,17 @@ function analyser() {
     return violations;
 }
 
+// Règles écartées par le projet qui appelle (jamais avec --seulement : les tests choisissent eux-mêmes).
+if (!args.includes("--seulement")) for (let k = RULES.length - 1; k >= 0; k--) if (ignorer.includes(RULES[k].id)) RULES.splice(k, 1);
 if (args.includes("--liste")) {
     console.log(`${RULES.length} règle(s) active(s) :`);
     for (const r of RULES) console.log(`  - ${r.id} [${r.dossiers.join(", ")}] — ${r.incident}`);
-    process.exit(0);
+    return 0;
 }
 
 if (illisibles.length) {
     console.error(`check-rules : ${illisibles.join(" ; ")} — corriger le JSON avant de continuer.`);
-    process.exit(1);
+    return 1;
 }
 // --seulement id1,id2 : ne lancer que ces règles (tests des contrôles, indépendants des règles propres au projet).
 const iSeul = args.indexOf("--seulement");
@@ -314,7 +333,7 @@ if (iSeul >= 0) {
 const violations = analyser();
 if (!violations.length) {
     console.log(`check-rules : ${RULES.length} règle(s), aucune violation.`);
-    process.exit(0);
+    return 0;
 }
 console.error(`\ncheck-rules : ${violations.length} violation(s)\n`);
 for (const v of violations) {
@@ -322,4 +341,18 @@ for (const v of violations) {
     console.error(`      ${v.texte}`);
 }
 console.error("\nException assumée sur une ligne : commentaire `regle-ok: <id>` avec la raison.\n");
-process.exit(1);
+return 1;
+}
+
+// Lancé directement (hook pre-commit, Vérification) ; importé par un autre check-rules, il ne lance rien seul.
+// Comparaison par chemin réel (lien symbolique, jonction, casse de lecteur sous Windows) : un faux « pas lancé
+// directement » ferait sortir le hook en 0 sans rien vérifier.
+const memeFichier = (a, b) => {
+    try {
+        const [x, y] = [realpathSync(a), realpathSync(b)];
+        return process.platform === "win32" ? x.toLowerCase() === y.toLowerCase() : x === y;
+    } catch {
+        return false;
+    }
+};
+if (process.argv[1] && memeFichier(path.resolve(process.argv[1]), ICI)) process.exit(lancerReglesCommunes());

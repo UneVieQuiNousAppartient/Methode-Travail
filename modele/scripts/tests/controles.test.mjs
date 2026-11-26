@@ -357,6 +357,35 @@ test("check-rules : règles d'architecture actives seulement avec leurs listes ;
     assert.match(r.stderr, /couleurs-autorisees\.json illisible/);
 });
 
+// ── consentement-precoche et appel depuis le check-rules d'un projet (méthode 1.7.2, cas de KHI Educ) ─────────────
+test("check-rules : consentement précoché bloqué ; consent: true envoyé au serveur après la case cochée : permis", () => {
+    const { d, g, ecrire } = depot();
+    const regle = () => spawnSync("node", [join(SCRIPTS, "check-rules.mjs"), "--racine", d, "--seulement", "consentement-precoche"], { encoding: "utf8" });
+    ecrire("src/app/Formulaire.tsx", "const [consent, setConsent] = useState(false);\nconst envoyer = () => fetch('/api/x', {\n  method: 'POST',\n  body: JSON.stringify({\n    nom,\n    consent: true,\n  }),\n});\n");
+    g("add", "-A");
+    let r = regle();
+    assert.equal(r.status, 0, `corps de requête : permis (${r.stderr})`);
+    ecrire("src/app/Precoche.tsx", "const etatInitial = {\n  body: '', // champ « message » d'un formulaire : pas un corps de requête\n  consent: true,\n};\nconst [ok] = useState(true); // consentement\n");
+    g("add", "-A");
+    r = regle();
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /Precoche\.tsx:3 +\[consentement-precoche\]/, "état initial à true : bloqué");
+    assert.doesNotMatch(r.stderr, /Formulaire\.tsx/);
+});
+
+test("check-rules : importé par le check-rules d'un projet, ne lance rien seul ; règles écartées respectées", async () => {
+    const { lancerReglesCommunes } = await import(join(SCRIPTS, "check-rules.mjs"));
+    assert.equal(typeof lancerReglesCommunes, "function", "l'import ne lance pas l'analyse (sinon le test sortirait)");
+    const { d, g, ecrire } = depot();
+    ecrire("src/lib/date.ts", "export const h = (d) => d.toLocaleTimeString('fr-CA');\n");
+    g("add", "-A");
+    const projet = join(d, "check-projet.mjs");
+    writeFileSync(projet, `import { lancerReglesCommunes } from ${JSON.stringify(join(SCRIPTS, "check-rules.mjs"))};\n`
+        + `process.exit(lancerReglesCommunes(["--racine", ${JSON.stringify(d)}], process.argv.slice(2)));\n`);
+    assert.equal(spawnSync("node", [projet], { encoding: "utf8" }).status, 1, "règle commune active : bloque");
+    assert.equal(spawnSync("node", [projet, "date-sans-fuseau"], { encoding: "utf8" }).status, 0, "règle écartée par le projet");
+});
+
 // ── Comparaison projet ↔ modèle ─────────────────────────────────────────────────────────────────────────────
 test("comparer-methode : identiques, absents, communs différents, à adapter, propres au projet", () => {
     const r = classer(
